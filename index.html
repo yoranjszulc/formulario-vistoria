@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1a3a5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Vistoria">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Vistoria — Laudo Pericial (Algério Szulc)</title>
+<style>
+  :root{--azul:#1a3a5c;--cinza:#f2f2f0;--borda:#c9c9c4;--erro:#b3261e;--ok:#1b6e3c;--aviso:#8a6d00}
+  *{box-sizing:border-box}
+  body{font-family:Georgia,'Times New Roman',serif;margin:0;background:var(--cinza);color:#222;line-height:1.45}
+  header{background:var(--azul);color:#fff;padding:.8rem 1rem;position:sticky;top:0;z-index:9}
+  header h1{font-size:1.05rem;margin:0}
+  header .sub{font-size:.78rem;opacity:.85}
+  main{max-width:860px;margin:0 auto;padding:.6rem .6rem 6rem}
+  details{background:#fff;border:1px solid var(--borda);border-radius:8px;margin:.6rem 0;overflow:hidden}
+  summary{cursor:pointer;padding:.7rem .9rem;font-weight:bold;background:#e8ecf1;font-size:.95rem}
+  summary .falta{color:var(--erro);font-weight:normal;font-size:.8rem}
+  .corpo{padding:.8rem .9rem}
+  label{display:block;font-size:.82rem;margin:.55rem 0 .15rem;color:#333}
+  label b.req{color:var(--erro)}
+  input[type=text],input[type=date],input[type=time],input[type=number],select,textarea{
+    width:100%;padding:.5rem;border:1px solid var(--borda);border-radius:6px;font:inherit;font-size:.95rem;background:#fff}
+  textarea{min-height:4.5rem}
+  textarea.grande{min-height:7rem}
+  .linha{display:flex;gap:.5rem;flex-wrap:wrap}
+  .linha>div{flex:1;min-width:130px}
+  .dica{font-size:.75rem;color:#666;margin-top:.15rem}
+  .valida{font-size:.8rem;margin-top:.2rem}
+  .valida.ok{color:var(--ok)} .valida.erro{color:var(--erro)} .valida.aviso{color:var(--aviso)}
+  .item-nr{border:1px solid var(--borda);border-radius:6px;padding:.6rem;margin:.5rem 0;background:#fafaf8}
+  .item-nr h4{margin:.1rem 0 .3rem;font-size:.88rem}
+  .row-dyn{border:1px dashed var(--borda);border-radius:6px;padding:.5rem;margin:.4rem 0;background:#fcfcfa;position:relative}
+  .row-dyn .rm{position:absolute;top:.3rem;right:.3rem;border:none;background:#eee;border-radius:4px;cursor:pointer;font-size:.8rem;padding:.1rem .45rem}
+  button.add{border:1px solid var(--azul);background:#fff;color:var(--azul);border-radius:6px;padding:.35rem .7rem;font:inherit;font-size:.85rem;cursor:pointer;margin-top:.3rem}
+  .barra{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--azul);padding:.55rem .8rem;display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;z-index:9}
+  .barra button{font:inherit;font-size:.9rem;padding:.55rem .9rem;border-radius:8px;cursor:pointer;border:1px solid var(--azul)}
+  #btExportar{background:var(--azul);color:#fff;font-weight:bold}
+  .barra button.sec{background:#fff;color:var(--azul)}
+  #pendencias{background:#fff8e6;border:1px solid #e5d38a}
+  #pendencias .corpo{font-size:.85rem}
+  #pendencias li{margin:.15rem 0}
+  #statusSalvo{font-size:.72rem;opacity:.8}
+  .oculto{display:none}
+  .chk{display:flex;align-items:flex-start;gap:.45rem;font-size:.85rem;margin:.4rem 0}
+  .chk input{margin-top:.2rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>Vistoria — Laudo Técnico Pericial</h1>
+  <div class="sub">Perito Algério Szulc · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+</header>
+<main id="form">
+
+<div id="avisoJS" style="background:#fdecea;border:2px solid #b3261e;border-radius:8px;padding:.8rem;margin:.6rem 0;font-size:.9rem">
+  <b>⚠ O formulário não está funcionando neste visualizador.</b><br>
+  Você provavelmente abriu pela pré-visualização do OneDrive ou dos Arquivos, que bloqueia
+  as partes interativas (seções 10 e 11 ficam vazias e o exportar não responde).<br><br>
+  <b>No iPhone:</b> instale o app gratuito <b>Documents (Readdle)</b>, salve este arquivo
+  nele e abra por lá — funciona offline e completo.<br>
+  <b>No notebook:</b> clique duas vezes no arquivo — abre no navegador e funciona direto.
+</div>
+
+<details open id="sec-caso"><summary>1. O caso <span class="falta"></span></summary><div class="corpo">
+  <label>Categoria da perícia <b class="req">*</b></label>
+  <select id="meta_categoria">
+    <option value="">— escolher —</option>
+    <option value="insalubridade">Insalubridade</option>
+    <option value="periculosidade">Periculosidade</option>
+    <option value="insalubridade_periculosidade">Insalubridade e Periculosidade</option>
+  </select>
+  <div class="linha">
+    <div><label>Leva seção METODOLOGIA? <b class="req">*</b></label>
+      <select id="meta_metodologia"><option value="">—</option><option value="sim">Sim</option><option value="nao">Não</option></select></div>
+    <div><label>Gênero de quem reclama <b class="req">*</b></label>
+      <select id="meta_genero"><option value="">—</option><option value="M">Masculino (o reclamante)</option><option value="F">Feminino (a reclamante)</option></select></div>
+    <div><label>Quantas reclamadas?</label>
+      <select id="meta_n_reclamadas"><option value="1">1</option><option value="2">2 ou mais</option></select></div>
+  </div>
+</div></details>
+
+<details open id="sec-processo"><summary>2. Processo <span class="falta"></span></summary><div class="corpo">
+  <label>Número do processo (CNJ) <b class="req">*</b></label>
+  <input type="text" id="processo_numero_cnj" inputmode="numeric" placeholder="0000000-00.0000.0.00.0000" autocomplete="off">
+  <div class="valida" id="v_cnj"></div>
+  <div class="linha">
+    <div><label>Vara <b class="req">*</b></label><input type="text" id="processo_vara" placeholder="ex.: 3ª Vara do Trabalho de Osasco"></div>
+    <div><label>Comarca / UF <b class="req">*</b></label><input type="text" id="processo_comarca_uf" placeholder="ex.: Osasco – SP"></div>
+  </div>
+  <label>Reclamante (nome completo) <b class="req">*</b></label><input type="text" id="processo_reclamante">
+  <label>Reclamada(s) — razão social <b class="req">*</b></label><input type="text" id="processo_reclamada">
+  <div class="linha">
+    <div><label>Honorários (R$)</label><input type="text" id="processo_honorarios" placeholder="ex.: 15.180,00"><div class="dica">Em branco = confirmar com o perito.</div></div>
+    <div><label>Cidade do laudo</label><input type="text" id="processo_cidade" placeholder="Santo André"></div>
+    <div><label>Data do laudo</label><input type="date" id="processo_data"></div>
+  </div>
+</div></details>
+
+<details id="sec-vinculo"><summary>3. Vínculo <span class="falta"></span></summary><div class="corpo">
+  <div class="linha">
+    <div><label>Admissão <b class="req">*</b></label><input type="date" id="vinculo_admissao"></div>
+    <div><label>Demissão</label><input type="date" id="vinculo_demissao"><div class="dica">Em branco se contrato vigente.</div></div>
+  </div>
+  <label>Função <b class="req">*</b></label><input type="text" id="vinculo_funcao">
+  <label>Jornada (escala e intervalos) <b class="req">*</b></label><input type="text" id="vinculo_jornada" placeholder="ex.: 2ª a 6ª, 07:00 às 17:00, 1h de intervalo · ou 12x36">
+  <div class="linha">
+    <div><label>Local de trabalho</label><input type="text" id="vinculo_local"></div>
+    <div><label>Setor <b class="req">*</b></label><input type="text" id="vinculo_setor"></div>
+  </div>
+</div></details>
+
+<details id="sec-reclamada"><summary>4. Reclamada <span class="falta"></span></summary><div class="corpo">
+  <label>Endereço vistoriado <b class="req">*</b></label><input type="text" id="reclamada_endereco">
+  <label>Atividade principal <b class="req">*</b></label><input type="text" id="reclamada_atividade">
+  <div class="linha">
+    <div><label>CNAE</label><input type="text" id="reclamada_cnae" placeholder="00.00-0/00"></div>
+    <div><label>Grau de risco (NR-4, Quadro I)</label>
+      <select id="reclamada_grau_risco"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+  </div>
+</div></details>
+
+<details id="sec-vistoria"><summary>5. Vistoria <span class="falta"></span></summary><div class="corpo">
+  <div class="linha">
+    <div><label>Data da vistoria <b class="req">*</b></label><input type="date" id="vistoria_data"></div>
+    <div><label>Hora de início <b class="req">*</b></label><input type="time" id="vistoria_hora_inicio"></div>
+    <div><label>Hora de término <b class="req">*</b></label><input type="time" id="vistoria_hora_termino"></div>
+  </div>
+  <label>Data da petição de comunicação no PJe</label><input type="date" id="vistoria_data_peticao_pje">
+  <label>Cicerones presentes (nome + cargo) <b class="req">*</b></label>
+  <div id="lst_cicerones"></div>
+  <button class="add" type="button" onclick="addRow('cicerones')">+ cicerone</button>
+</div></details>
+
+<details id="sec-local"><summary>6. Descrição do local <span class="falta"></span></summary><div class="corpo">
+  <div class="linha">
+    <div><label>Tipo de construção</label><input type="text" id="local_tipo" placeholder="ex.: alvenaria e estrutura metálica"></div>
+    <div><label>Dimensões do recinto</label><input type="text" id="local_dimensoes" placeholder="ex.: 30,0 x 15,0 metros"></div>
+    <div><label>Pé direito</label><input type="text" id="local_pe_direito" placeholder="ex.: 6,0 metros"></div>
+  </div>
+  <div class="linha">
+    <div><label>Piso</label><input type="text" id="local_piso"></div>
+    <div><label>Ventilação</label><input type="text" id="local_ventilacao"></div>
+    <div><label>Iluminação</label><input type="text" id="local_iluminacao"></div>
+    <div><label>Estado de conservação</label><input type="text" id="local_conservacao"></div>
+  </div>
+</div></details>
+
+<details id="sec-atividades"><summary>7. Atividades <span class="falta"></span></summary><div class="corpo">
+  <label>O que a pessoa fazia, onde, com que frequência — texto livre (pode ditar pelo microfone do teclado) <b class="req">*</b></label>
+  <textarea class="grande" id="atividades_texto"></textarea>
+</div></details>
+
+<details id="sec-protecao"><summary>8. Proteção — EPC e EPI <span class="falta"></span></summary><div class="corpo">
+  <label class="chk"><input type="checkbox" id="epc_ausente"> Não foi constatado EPC no local (frase padrão)</label>
+  <div id="grp_epc"><label>EPCs constatados</label><div id="lst_epcs"></div>
+  <button class="add" type="button" onclick="addRow('epcs')">+ EPC</button></div>
+  <label style="margin-top:.8rem">Uniforme (peças fornecidas)</label><input type="text" id="protecao_uniforme" placeholder="ex.: calça, camisa e botina">
+  <label>EPIs fornecidos <b class="req">*</b> — C.A. em branco vira lacuna [A PREENCHER], nunca se inventa</label>
+  <div id="lst_epis"></div>
+  <button class="add" type="button" onclick="addRow('epis')">+ EPI</button>
+</div></details>
+
+<details id="sec-instrumento"><summary>9. Instrumento de medição <span class="falta"></span></summary><div class="corpo">
+  <label>Houve medição de ruído?</label>
+  <select id="instrumento_tipo" onchange="mudaInstrumento()">
+    <option value="">Não houve medição</option>
+    <option value="decibelimetro">Sim — decibelímetro</option>
+    <option value="dosimetro">Sim — dosímetro</option>
+  </select>
+  <div id="grp_instrumento" class="oculto">
+    <div class="linha">
+      <div><label>Marca <b class="req">*</b></label><input type="text" id="instrumento_marca"></div>
+      <div><label>Modelo <b class="req">*</b></label><input type="text" id="instrumento_modelo"></div>
+    </div>
+    <div id="grp_portador" class="oculto">
+      <div class="linha">
+        <div><label>Portador do instrumento (nome)</label><input type="text" id="portador_nome"></div>
+        <div><label>Função</label><input type="text" id="portador_funcao"></div>
+      </div>
+      <div class="linha">
+        <div><label>Data de admissão do portador</label><input type="date" id="portador_admissao"></div>
+        <div><label>Conheceu o reclamante?</label>
+          <select id="portador_conheceu"><option value="">—</option><option>Sim</option><option>Não</option></select></div>
+      </div>
+    </div>
+    <label>Leituras (local, nível, período)</label>
+    <div id="lst_ruido"></div>
+    <button class="add" type="button" onclick="addRow('ruido')">+ leitura</button>
+  </div>
+</div></details>
+
+<details id="sec-nr15"><summary>10. NR-15 — Avaliações ambientais <span class="falta"></span></summary><div class="corpo">
+  <div class="dica">Os 11 agentes precisam de resposta. "Sem fonte geradora" usa a frase padrão do agente. O que for texto próprio pode ser ditado pelo teclado.</div>
+  <div id="grp_nr15"></div>
+</div></details>
+
+<details id="sec-nr16"><summary>11. NR-16 — Periculosidade <span class="falta"></span></summary><div class="corpo">
+  <div class="dica">Os 11 itens precisam de resposta. O item 2 (inflamáveis) nunca usa resposta padrão.</div>
+  <div id="grp_nr16"></div>
+</div></details>
+
+<details id="sec-controversias"><summary>12. Controvérsias entre as partes</summary><div class="corpo">
+  <div class="dica">Se as versões divergem, registram-se as duas — quem arbitra é o perito, no laudo não.</div>
+  <div id="lst_controversias"></div>
+  <button class="add" type="button" onclick="addRow('controversias')">+ controvérsia</button>
+</div></details>
+
+<details id="sec-conclusao"><summary>13. Conclusão <span class="falta"></span></summary><div class="corpo">
+  <label>Resultado — só o perito define <b class="req">*</b></label>
+  <select id="conclusao_resultado" onchange="mudaConclusao()">
+    <option value="aguardando">AINDA NÃO DEFINIDO — o laudo sai com o marcador de espera</option>
+    <option value="existencia">Existência</option>
+    <option value="inexistencia">Inexistência</option>
+    <option value="parcial">Parcial</option>
+  </select>
+  <div id="grp_conclusao" class="oculto">
+    <div class="linha">
+      <div><label>Anexo / Quadro / letra</label><input type="text" id="conclusao_anexo" placeholder="ex.: NR-15 Anexo 1 · NR-16 Anexo 2, letra q"></div>
+      <div><label>Grau (insalubridade)</label>
+        <select id="conclusao_grau"><option value="">—</option><option>mínimo</option><option>médio</option><option>máximo</option></select></div>
+    </div>
+    <label>Agente agressor / natureza do risco</label><input type="text" id="conclusao_agente">
+    <label>Neutralização por EPI? Qual?</label><input type="text" id="conclusao_epi" placeholder="em branco = não neutralizado">
+    <label>Período e local/setor abrangidos</label><input type="text" id="conclusao_periodo">
+    <label>Delimitação métrica da área de risco (periculosidade)</label><input type="text" id="conclusao_delimitacao">
+  </div>
+</div></details>
+
+<details id="sec-quesitos"><summary>14. Quesitos</summary><div class="corpo">
+  <div class="dica">Pergunta copiada literal dos autos, com o número original (mesmo se saltar). Resposta em branco = [AGUARDANDO DEFINIÇÃO DO PERITO].</div>
+  <label>Do reclamante</label><div id="lst_quesitos_reclamante"></div>
+  <button class="add" type="button" onclick="addRow('quesitos_reclamante')">+ quesito do reclamante</button>
+  <label style="margin-top:.8rem">Da(s) reclamada(s)</label><div id="lst_quesitos_reclamada"></div>
+  <button class="add" type="button" onclick="addRow('quesitos_reclamada')">+ quesito da reclamada</button>
+</div></details>
+
+<details id="sec-obs"><summary>15. Observações livres</summary><div class="corpo">
+  <label>Qualquer coisa que não coube acima (documentos dos autos usados, setor desativado/modo documental, migração de setor…)</label>
+  <textarea class="grande" id="observacoes_texto"></textarea>
+</div></details>
+
+<details open id="pendencias"><summary>⚠ Pendências antes de sair do local</summary><div class="corpo"><ul id="lstPend"></ul></div></details>
+
+</main>
+<div class="barra">
+  <button id="btExportar" type="button" onclick="exportar()">Exportar (registro + ditado)</button>
+  <button class="sec" type="button" onclick="document.getElementById('importFile').click()">Importar</button>
+  <input type="file" id="importFile" class="oculto" accept=".json" onchange="importar(event)">
+  <button class="sec" type="button" onclick="limpar()">Limpar tudo</button>
+</div>
+
+<script>
+"use strict";
+/* ============================== dados fixos ============================== */
+const AGENTES_NR15 = ["Ruído contínuo ou intermitente","Exposição ao calor","Iluminamento",
+ "Radiações ionizantes","Radiações não ionizantes","Poeiras minerais","Vibrações","Frio",
+ "Umidade","Agentes químicos","Agentes biológicos"];
+const ITENS_NR16 = ["Explosivos","Inflamáveis","Radiações ionizantes ou substâncias radioativas",
+ "Roubos e outras espécies de violência","Redes de linhas aéreas (SEP)","Redes de linhas subterrâneas (SEP)",
+ "Inspeção, testes e ensaios em SEP","Usinas, geradoras, subestações e cabinas","Treinamento em instalações energizadas",
+ "Motocicleta","Agentes das autoridades de trânsito"];
+const ANEXO1 = {85:"8 horas",86:"7 horas",87:"6 horas",88:"5 horas",89:"4 h 30 min",90:"4 horas",
+ 91:"3 h 30 min",92:"3 horas",93:"2 h 40 min",94:"2 h 15 min",95:"2 horas",96:"1 h 45 min",
+ 98:"1 h 15 min",100:"1 hora",102:"45 minutos",104:"35 minutos",105:"30 minutos",106:"25 minutos",
+ 108:"20 minutos",110:"15 minutos",112:"10 minutos",114:"8 minutos",115:"7 minutos"};
+const VARAS = {"5.02.0383":"3ª Vara do Trabalho de Osasco – SP","5.02.0435":"5ª Vara do Trabalho de Santo André – SP",
+ "5.02.0461":"1ª Vara do Trabalho de São Bernardo do Campo – SP","5.02.0468":"8ª Vara do Trabalho de São Bernardo do Campo – SP"};
+const LS = "vistoria_szulc_v1";
+
+/* ============================ linhas dinâmicas =========================== */
+const ROWS = {
+  cicerones:{campos:[["nome","Nome"],["cargo","Cargo"]]},
+  epcs:{campos:[["nome","EPC"]]},
+  epis:{campos:[["nome","EPI"],["ca","C.A. (só números)"]]},
+  ruido:{campos:[["local","Local"],["nivel","Nível dB(A)"],["periodo","Período de exposição"]]},
+  controversias:{campos:[["reclamante","Versão do reclamante"],["reclamada","Versão da reclamada"],["evidencia","Evidência objetiva"]],area:true},
+  quesitos_reclamante:{campos:[["numero","Nº nos autos"],["pergunta","Pergunta (literal)"],["resposta","Resposta"]],area:true},
+  quesitos_reclamada:{campos:[["numero","Nº nos autos"],["pergunta","Pergunta (literal)"],["resposta","Resposta"]],area:true},
+};
+function addRow(tipo, valores){
+  const cont = document.getElementById("lst_"+tipo);
+  const div = document.createElement("div");
+  div.className = "row-dyn"; div.dataset.tipo = tipo;
+  let h = '<button class="rm" type="button" onclick="this.parentNode.remove();salvar()">×</button>';
+  for(const [k,rotulo] of ROWS[tipo].campos){
+    const v = valores && valores[k] ? valores[k] : "";
+    if(ROWS[tipo].area && (k==="pergunta"||k==="resposta"||k.length>9))
+      h += `<label>${rotulo}</label><textarea data-k="${k}">${esc(v)}</textarea>`;
+    else
+      h += `<label>${rotulo}</label><input type="text" data-k="${k}" value="${esc(v)}">`;
+  }
+  div.innerHTML = h; cont.appendChild(div);
+  if(tipo==="ruido"){
+    const inp = div.querySelector('[data-k="nivel"]');
+    const fb = document.createElement("div"); fb.className="valida"; inp.after(fb);
+    inp.addEventListener("input",()=>{ checaNivel(inp,fb); salvar(); });
+  }
+}
+function checaNivel(inp,fb){
+  const n = parseInt((inp.value||"").replace(",", "."),10);
+  if(!inp.value){fb.textContent="";return}
+  if(isNaN(n)){fb.textContent="não entendi o número";fb.className="valida aviso";return}
+  if(ANEXO1[n]){fb.textContent=`Anexo 1: máx. exposição diária ${ANEXO1[n]}`;fb.className="valida ok"}
+  else if(n>115){fb.textContent="acima de 115 dB(A): risco grave e iminente — redação do perito";fb.className="valida aviso"}
+  else {fb.textContent=`${n} dB(A) não consta da tabela do Anexo 1 — perguntar ao perito qual linha adota`;fb.className="valida erro"}
+}
+
+/* =============================== NR-15 / 16 ============================== */
+function montaNR(){
+  const g15 = document.getElementById("grp_nr15");
+  AGENTES_NR15.forEach((nome,i)=>{
+    const n=i+1, d=document.createElement("div"); d.className="item-nr";
+    d.innerHTML = `<h4>${n}. ${nome}</h4>
+      <select id="nr15_${n}_modo">
+        <option value="">— responder —</option>
+        <option value="padrao">Sem fonte geradora (frase padrão do agente)</option>
+        <option value="proprio">Texto próprio (avaliado em campo)</option>
+        <option value="documental">Documental (LTCAT/PGR) — indicar setor no texto</option>
+        ${n===3?'<option value="revogado">Texto fixo de revogação (Anexo 4 / Portaria 3751-90)</option>':""}
+      </select>
+      <textarea id="nr15_${n}_texto" placeholder="texto próprio, medições, produtos… (pode ditar pelo teclado)"></textarea>`;
+    g15.appendChild(d);
+  });
+  const g16 = document.getElementById("grp_nr16");
+  ITENS_NR16.forEach((nome,i)=>{
+    const n=i+1, d=document.createElement("div"); d.className="item-nr";
+    d.innerHTML = `<h4>${n}. ${nome}</h4>
+      <select id="nr16_${n}_modo">
+        <option value="">— responder —</option>
+        ${n===2?"":'<option value="padrao">Não se aplica (resposta negativa padrão do item)</option>'}
+        <option value="proprio">Texto próprio</option>
+      </select>
+      ${n===2?`<div class="linha">
+        <div><label>Distância dos inflamáveis ao posto (m)</label><input type="text" id="nr16_2_distancia"></div>
+        <div><label>Volume total (litros)</label><input type="text" id="nr16_2_volume"></div>
+      </div>
+      <label>Produtos e frequência dos deslocamentos</label>`:""}
+      <textarea id="nr16_${n}_texto" placeholder="${n===2?"onde laborava, onde estão os inflamáveis, frequência…":"texto próprio, se houver"}"></textarea>`;
+    g16.appendChild(d);
+  });
+}
+
+/* ================================== CNJ ================================== */
+function mod97(s){ let r=0; for(let i=0;i<s.length;i++){ r=(r*10+(s.charCodeAt(i)-48))%97; } return r; }
+function validaCNJ(){
+  const el = document.getElementById("processo_numero_cnj");
+  const fb = document.getElementById("v_cnj");
+  const dig = (el.value||"").replace(/\D/g,"");
+  if(!dig){fb.textContent="";return}
+  if(dig.length!==20){fb.textContent=`${dig.length}/20 dígitos`;fb.className="valida aviso";return}
+  const n=dig.slice(0,7), dv=dig.slice(7,9), resto=dig.slice(9);
+  const ok = mod97(n+resto+dv)===1;
+  if(!ok){fb.textContent="✗ dígito verificador NÃO fecha — número digitado errado";fb.className="valida erro";return}
+  const j=dig.slice(13,14), tr=dig.slice(14,16), oooo=dig.slice(16);
+  const vara = VARAS[`${j}.${tr}.${oooo}`];
+  fb.className="valida ok";
+  fb.textContent = "✓ dígito verificador fecha" + (vara?` · origem ${oooo} = ${vara} (confirme)`:"");
+  if(vara && !document.getElementById("processo_vara").value){
+    document.getElementById("processo_vara").value = vara.replace(/ – SP$/,"");
+    document.getElementById("processo_comarca_uf").value = vara.split(" de ").slice(1).join(" de ");
+  }
+  el.value = `${dig.slice(0,7)}-${dv}.${dig.slice(9,13)}.${j}.${tr}.${oooo}`;
+}
+
+/* ============================== condicionais ============================= */
+function mudaInstrumento(){
+  const t = document.getElementById("instrumento_tipo").value;
+  document.getElementById("grp_instrumento").classList.toggle("oculto", !t);
+  document.getElementById("grp_portador").classList.toggle("oculto", t!=="dosimetro");
+  if(t && !document.querySelector('#lst_ruido .row-dyn')) addRow("ruido");
+}
+function mudaConclusao(){
+  const v = document.getElementById("conclusao_resultado").value;
+  document.getElementById("grp_conclusao").classList.toggle("oculto", v==="aguardando");
+}
+
+/* ============================ salvar / restaurar ========================= */
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;")}
+function coletar(){
+  const dados = {campos:{}, listas:{}};
+  document.querySelectorAll("main input[id],main select[id],main textarea[id]").forEach(el=>{
+    if(el.type==="checkbox") dados.campos[el.id]=el.checked; else dados.campos[el.id]=el.value;
+  });
+  for(const tipo in ROWS){
+    dados.listas[tipo]=[];
+    document.querySelectorAll(`#lst_${tipo} .row-dyn`).forEach(r=>{
+      const o={}; r.querySelectorAll("[data-k]").forEach(i=>o[i.dataset.k]=i.value);
+      dados.listas[tipo].push(o);
+    });
+  }
+  return dados;
+}
+function aplicar(dados){
+  for(const id in (dados.campos||{})){
+    const el=document.getElementById(id); if(!el) continue;
+    if(el.type==="checkbox") el.checked=!!dados.campos[id]; else el.value=dados.campos[id];
+  }
+  for(const tipo in ROWS){
+    document.getElementById("lst_"+tipo).innerHTML="";
+    (dados.listas && dados.listas[tipo] || []).forEach(v=>addRow(tipo,v));
+  }
+  validaCNJ(); mudaInstrumento(); mudaConclusao(); pendencias();
+  document.querySelectorAll('#lst_ruido .row-dyn').forEach(r=>{
+    const i=r.querySelector('[data-k="nivel"]'), f=r.querySelector(".valida");
+    if(i&&f) checaNivel(i,f);
+  });
+}
+let tSalvar=null;
+function salvar(){
+  clearTimeout(tSalvar);
+  tSalvar=setTimeout(()=>{
+    try{ localStorage.setItem(LS, JSON.stringify(coletar()));
+      document.getElementById("statusSalvo").textContent="salvo "+new Date().toLocaleTimeString("pt-BR");
+    }catch(e){ document.getElementById("statusSalvo").textContent="⚠ não consegui salvar"; }
+    pendencias();
+  },400);
+}
+function limpar(){
+  if(!confirm("Apagar tudo que foi preenchido neste aparelho?")) return;
+  localStorage.removeItem(LS); location.reload();
+}
+
+/* =============================== pendências ============================== */
+const OBRIG = [["meta_categoria","categoria da perícia"],["meta_metodologia","leva METODOLOGIA?"],
+ ["meta_genero","gênero"],["processo_numero_cnj","nº do processo"],["processo_vara","vara"],
+ ["processo_comarca_uf","comarca/UF"],["processo_reclamante","reclamante"],["processo_reclamada","reclamada"],
+ ["vinculo_admissao","data de admissão"],["vinculo_funcao","função"],["vinculo_jornada","jornada"],
+ ["vinculo_setor","setor"],["reclamada_endereco","endereço vistoriado"],["reclamada_atividade","atividade da reclamada"],
+ ["vistoria_data","data da vistoria"],["vistoria_hora_inicio","hora de início"],["vistoria_hora_termino","hora de término"],
+ ["atividades_texto","descrição das atividades"]];
+function pendencias(){
+  const p=[];
+  for(const [id,nome] of OBRIG){ const el=document.getElementById(id); if(el && !el.value) p.push(nome); }
+  if(!document.querySelector("#lst_cicerones .row-dyn")) p.push("cicerones presentes");
+  if(!document.querySelector("#lst_epis .row-dyn")) p.push("EPIs (ou registrar que não houve)");
+  document.querySelectorAll("#lst_epis .row-dyn").forEach((r,i)=>{
+    const ca=r.querySelector('[data-k="ca"]').value.trim();
+    if(ca && !/^\d{3,6}$/.test(ca)) p.push(`C.A. do EPI ${i+1} com formato estranho ("${ca}")`);
+  });
+  const cat=document.getElementById("meta_categoria").value;
+  if(cat && cat!=="periculosidade")
+    for(let n=1;n<=11;n++) if(!document.getElementById(`nr15_${n}_modo`).value) p.push(`NR-15 agente ${n} sem resposta`);
+  if(cat && cat!=="insalubridade")
+    for(let n=1;n<=11;n++) if(!document.getElementById(`nr16_${n}_modo`).value) p.push(`NR-16 item ${n} sem resposta`);
+  const ul=document.getElementById("lstPend");
+  ul.innerHTML = p.length ? p.map(x=>`<li>${x}</li>`).join("") : "<li style='color:var(--ok)'>nada pendente ✓</li>";
+  document.querySelector("#pendencias summary").textContent = p.length?`⚠ Pendências antes de sair do local (${p.length})`:"✓ Sem pendências";
+}
+
+/* ================================ exportar =============================== */
+function campo(lista, caminho, valor, status){
+  const v = (valor===undefined||valor===null)?"":String(valor).trim();
+  lista.push({campo:caminho, valor: v||null, origem:"formulario", status: status || (v?"confirmado":"lacuna")});
+}
+function exportar(){
+  const d = coletar(), c = [], hoje = new Date().toISOString().slice(0,10);
+  const g = id => (d.campos[id]||"").toString().trim();
+  const cat = g("meta_categoria")||"[não definida]";
+  // meta + processo
+  campo(c,"processo.numero_cnj",g("processo_numero_cnj"));
+  campo(c,"processo.vara",g("processo_vara")); campo(c,"processo.comarca_uf",g("processo_comarca_uf"));
+  campo(c,"processo.reclamante",g("processo_reclamante")); campo(c,"processo.reclamada",g("processo_reclamada"));
+  campo(c,"processo.honorarios",g("processo_honorarios")); campo(c,"processo.cidade",g("processo_cidade"));
+  campo(c,"processo.data",g("processo_data"));
+  ["admissao","demissao","funcao","jornada","local","setor"].forEach(k=>campo(c,"vinculo."+k,g("vinculo_"+k)));
+  ["endereco","atividade","cnae","grau_risco"].forEach(k=>campo(c,"reclamada."+k,g("reclamada_"+k)));
+  ["data","hora_inicio","hora_termino","data_peticao_pje"].forEach(k=>campo(c,"vistoria."+k,g("vistoria_"+k)));
+  (d.listas.cicerones||[]).forEach((r,i)=>campo(c,`vistoria.cicerone[${i+1}]`,`${r.nome} — ${r.cargo}`));
+  ["tipo","dimensoes","pe_direito","piso","ventilacao","iluminacao","conservacao"].forEach(k=>campo(c,"local."+k,g("local_"+k)));
+  campo(c,"atividades.texto",g("atividades_texto"));
+  campo(c,"protecao.epc_ausente", d.campos.epc_ausente?"sim":"");
+  (d.listas.epcs||[]).forEach((r,i)=>campo(c,`protecao.epc[${i+1}]`,r.nome));
+  campo(c,"protecao.uniforme",g("protecao_uniforme"));
+  (d.listas.epis||[]).forEach((r,i)=>{
+    campo(c,`protecao.epi[${i+1}].nome`,r.nome);
+    campo(c,`protecao.epi[${i+1}].ca`,r.ca, r.ca?"confirmado":"lacuna");
+  });
+  if(g("instrumento_tipo")){
+    campo(c,"instrumento.tipo",g("instrumento_tipo"));
+    campo(c,"instrumento.marca",g("instrumento_marca")); campo(c,"instrumento.modelo",g("instrumento_modelo"));
+    if(g("instrumento_tipo")==="dosimetro"){
+      campo(c,"instrumento.portador.nome",g("portador_nome")); campo(c,"instrumento.portador.funcao",g("portador_funcao"));
+      campo(c,"instrumento.portador.admissao",g("portador_admissao")); campo(c,"instrumento.portador.conheceu",g("portador_conheceu"));
+    }
+    (d.listas.ruido||[]).forEach((r,i)=>{
+      campo(c,`avaliacoes.nr15[1].medicao[${i+1}].local`,r.local);
+      campo(c,`avaliacoes.nr15[1].medicao[${i+1}].nivel_db`,r.nivel);
+      campo(c,`avaliacoes.nr15[1].medicao[${i+1}].periodo`,r.periodo);
+    });
+  }
+  for(let n=1;n<=11;n++){
+    campo(c,`avaliacoes.nr15[${n}].modo`,g(`nr15_${n}_modo`));
+    if(g(`nr15_${n}_texto`)) campo(c,`avaliacoes.nr15[${n}].texto_proprio`,g(`nr15_${n}_texto`));
+  }
+  for(let n=1;n<=11;n++){
+    campo(c,`avaliacoes.nr16[${n}].modo`,g(`nr16_${n}_modo`));
+    if(g(`nr16_${n}_texto`)) campo(c,`avaliacoes.nr16[${n}].texto_proprio`,g(`nr16_${n}_texto`));
+  }
+  campo(c,"avaliacoes.nr16[2].distancia",g("nr16_2_distancia"));
+  campo(c,"avaliacoes.nr16[2].volume",g("nr16_2_volume"));
+  (d.listas.controversias||[]).forEach((r,i)=>{
+    campo(c,`controversia[${i+1}].tese_reclamante`,r.reclamante);
+    campo(c,`controversia[${i+1}].tese_reclamada`,r.reclamada);
+    campo(c,`controversia[${i+1}].evidencia`,r.evidencia);
+  });
+  const res=g("conclusao_resultado");
+  if(res==="aguardando"||!res){
+    c.push({campo:"conclusao.resultado",valor:null,origem:"formulario",status:"aguardando_perito"});
+  }else{
+    campo(c,"conclusao.resultado",res);
+    ["anexo","grau","agente","epi","periodo","delimitacao"].forEach(k=>campo(c,"conclusao."+k,g("conclusao_"+k)));
+  }
+  ["reclamante","reclamada"].forEach(parte=>{
+    (d.listas["quesitos_"+parte]||[]).forEach((r,i)=>{
+      campo(c,`quesitos.${parte}[${i+1}].numero_autos`,r.numero);
+      c.push({campo:`quesitos.${parte}[${i+1}].pergunta`,valor:r.pergunta||null,origem:`quesito#${r.numero||i+1}`,status:r.pergunta?"confirmado":"lacuna"});
+      c.push({campo:`quesitos.${parte}[${i+1}].resposta`,valor:r.resposta||null,origem:"formulario",status:r.resposta?"confirmado":"aguardando_perito"});
+    });
+  });
+  if(g("observacoes_texto")) campo(c,"observacoes.texto",g("observacoes_texto"));
+
+  // ditado_txt — tudo em texto rotulado, insumo do verificar_fidelidade
+  const linhas = [`DITADO — vistoria de ${g("vistoria_data")||"[data]"} — categoria: ${cat}`,""];
+  c.forEach(x=>{ if(x.valor) linhas.push(`${x.campo}: ${x.valor}`); });
+
+  // um arquivo só: exportação dupla é bloqueada no Safari do iPhone
+  const registro = {meta:{arquivo_docx:null,categoria:cat,
+      metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html"},
+    campos:c, ditado_txt:linhas.join("\n")};
+
+  const nome = ((g("processo_reclamante")||"vistoria").split(" ")[0]+"_"+(g("vistoria_data")||hoje))+"_vistoria.json";
+  entregar(nome, JSON.stringify(registro,null,2));
+}
+function entregar(nome, conteudo){
+  // 1º compartilhar (iPhone: manda direto pro WhatsApp/e-mail) → 2º baixar → 3º copiar
+  try{
+    const f = new File([conteudo], nome, {type:"application/json"});
+    if(navigator.canShare && navigator.canShare({files:[f]})){
+      navigator.share({files:[f], title:nome}).catch(()=>baixarOuCopiar(nome, conteudo));
+      return;
+    }
+  }catch(e){}
+  baixarOuCopiar(nome, conteudo);
+}
+function baixarOuCopiar(nome, conteudo){
+  try{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([conteudo],{type:"application/json;charset=utf-8"}));
+    a.download=nome; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    alert("Arquivo exportado: "+nome+"\nMande por WhatsApp, e-mail ou pasta do OneDrive.\n\nSe o download não apareceu, use a tela de cópia que vai abrir.");
+    setTimeout(()=>{ /* sem como detectar download bloqueado; oferecer cópia sob demanda */ },0);
+  }catch(e){ modalCopia(nome, conteudo); }
+}
+function modalCopia(nome, conteudo){
+  let m=document.getElementById("modalCopia");
+  if(!m){
+    m=document.createElement("div"); m.id="modalCopia";
+    m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99;display:flex;align-items:center;justify-content:center;padding:1rem";
+    m.innerHTML='<div style="background:#fff;border-radius:10px;max-width:640px;width:100%;padding:1rem">'
+      +'<b>Copie o conteúdo abaixo e cole numa mensagem</b> (toque na caixa → Selecionar tudo → Copiar)'
+      +'<textarea id="txtCopia" readonly style="width:100%;min-height:40vh;margin:.6rem 0;font-size:.75rem"></textarea>'
+      +'<button type="button" onclick="document.getElementById(\'modalCopia\').remove()" style="font:inherit;padding:.5rem 1rem">Fechar</button></div>';
+    document.body.appendChild(m);
+  }
+  document.getElementById("txtCopia").value = "// "+nome+"\n"+conteudo;
+}
+function importar(ev){
+  const f=ev.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+      const j=JSON.parse(r.result);
+      if(j.campos && !Array.isArray(j.campos)) { aplicar(j); }   // backup do formulário
+      else alert("Este JSON é um registro exportado, não um backup do formulário. Importe o backup salvo neste aparelho ou repreencha.");
+      salvar();
+    }catch(e){ alert("Não consegui ler o arquivo: "+e.message); } };
+  r.readAsText(f);
+}
+
+/* ================================== init ================================= */
+document.getElementById("avisoJS").remove();   // JS rodou: o aviso sai
+montaNR();
+document.getElementById("processo_numero_cnj").addEventListener("blur", ()=>{validaCNJ();salvar();});
+document.getElementById("form").addEventListener("input", salvar);
+document.getElementById("form").addEventListener("change", salvar);
+try{ const s=localStorage.getItem(LS); if(s) aplicar(JSON.parse(s)); }catch(e){}
+if(!document.querySelector("#lst_cicerones .row-dyn")) addRow("cicerones");
+if(!document.querySelector("#lst_epis .row-dyn")) addRow("epis");
+pendencias();
+</script>
+<script>
+if ("serviceWorker" in navigator && location.protocol === "https:")
+  navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
