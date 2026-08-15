@@ -64,7 +64,9 @@
   as partes interativas (seções 10 e 11 ficam vazias e o exportar não responde).<br><br>
   <b>No iPhone:</b> instale o app gratuito <b>Documents (Readdle)</b>, salve este arquivo
   nele e abra por lá — funciona offline e completo.<br>
-  <b>No notebook:</b> clique duas vezes no arquivo — abre no navegador e funciona direto.
+  <b>No notebook:</b> clique duas vezes no arquivo — abre no navegador e funciona direto.<br>
+  <b>Pelo link ou app da tela de início:</b> isto não deveria aparecer — feche e abra de
+  novo no Safari/Chrome; persistindo, avise o Yoran.
 </div>
 
 <details open id="sec-caso"><summary>1. O caso <span class="falta"></span></summary><div class="corpo">
@@ -495,11 +497,11 @@ function exportar(){
     });
   }
   for(let n=1;n<=11;n++){
-    campo(c,`avaliacoes.nr15[${n}].modo`,g(`nr15_${n}_modo`));
+    campo(c,`avaliacoes.nr15[${n}].modo`, g(`nr15_${n}_modo`) || (g(`nr15_${n}_texto`)?"proprio":""));
     if(g(`nr15_${n}_texto`)) campo(c,`avaliacoes.nr15[${n}].texto_proprio`,g(`nr15_${n}_texto`));
   }
   for(let n=1;n<=11;n++){
-    campo(c,`avaliacoes.nr16[${n}].modo`,g(`nr16_${n}_modo`));
+    campo(c,`avaliacoes.nr16[${n}].modo`, g(`nr16_${n}_modo`) || (g(`nr16_${n}_texto`)?"proprio":""));
     if(g(`nr16_${n}_texto`)) campo(c,`avaliacoes.nr16[${n}].texto_proprio`,g(`nr16_${n}_texto`));
   }
   campo(c,"avaliacoes.nr16[2].distancia",g("nr16_2_distancia"));
@@ -532,6 +534,7 @@ function exportar(){
   // um arquivo só: exportação dupla é bloqueada no Safari do iPhone
   const registro = {meta:{arquivo_docx:null,categoria:cat,
       metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
+      n_reclamadas:g("meta_n_reclamadas")||"1",
       gerado_em:hoje, fonte:"Formulario_Vistoria.html"},
     campos:c, ditado_txt:linhas.join("\n")};
 
