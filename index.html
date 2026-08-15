@@ -54,7 +54,7 @@
 <body>
 <header>
   <h1>Vistoria — Laudo Técnico Pericial</h1>
-  <div class="sub">Perito Algério Szulc · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+  <div class="sub">Perito Algério Szulc · v3 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
 </header>
 <main id="form">
 
@@ -83,7 +83,7 @@
     <div><label>Gênero de quem reclama <b class="req">*</b></label>
       <select id="meta_genero"><option value="">—</option><option value="M">Masculino (o reclamante)</option><option value="F">Feminino (a reclamante)</option></select></div>
     <div><label>Quantas reclamadas?</label>
-      <select id="meta_n_reclamadas"><option value="1">1</option><option value="2">2 ou mais</option></select></div>
+      <select id="meta_n_reclamadas" onchange="mudaReclamadas()"><option value="1">1</option><option value="2">2 ou mais</option></select></div>
   </div>
 </div></details>
 
@@ -97,6 +97,11 @@
   </div>
   <label>Reclamante (nome completo) <b class="req">*</b></label><input type="text" id="processo_reclamante">
   <label>Reclamada(s) — razão social <b class="req">*</b></label><input type="text" id="processo_reclamada">
+  <div id="grp_reclamada2" class="oculto">
+    <label>2ª reclamada (e seguintes) — razão social <b class="req">*</b></label>
+    <input type="text" id="processo_reclamada2">
+    <div class="dica">Com 2 ou mais reclamadas, os quesitos vão em seções separadas — a seção 14 ganha o bloco da 2ª reclamada.</div>
+  </div>
   <div class="linha">
     <div><label>Honorários (R$)</label><input type="text" id="processo_honorarios" placeholder="ex.: 15.180,00"><div class="dica">Em branco = confirmar com o perito.</div></div>
     <div><label>Cidade do laudo</label><input type="text" id="processo_cidade" placeholder="Santo André"></div>
@@ -109,6 +114,7 @@
     <div><label>Admissão <b class="req">*</b></label><input type="date" id="vinculo_admissao"></div>
     <div><label>Demissão</label><input type="date" id="vinculo_demissao"><div class="dica">Em branco se contrato vigente.</div></div>
   </div>
+  <div class="valida" id="v_datas"></div>
   <label>Função <b class="req">*</b></label><input type="text" id="vinculo_funcao">
   <label>Jornada (escala e intervalos) <b class="req">*</b></label><input type="text" id="vinculo_jornada" placeholder="ex.: 2ª a 6ª, 07:00 às 17:00, 1h de intervalo · ou 12x36">
   <div class="linha">
@@ -133,6 +139,7 @@
     <div><label>Hora de início <b class="req">*</b></label><input type="time" id="vistoria_hora_inicio"></div>
     <div><label>Hora de término <b class="req">*</b></label><input type="time" id="vistoria_hora_termino"></div>
   </div>
+  <div class="valida" id="v_horas"></div>
   <label>Data da petição de comunicação no PJe</label><input type="date" id="vistoria_data_peticao_pje">
   <label>Cicerones presentes (nome + cargo) <b class="req">*</b></label>
   <div id="lst_cicerones"></div>
@@ -140,6 +147,7 @@
 </div></details>
 
 <details id="sec-local"><summary>6. Descrição do local <span class="falta"></span></summary><div class="corpo">
+  <label>Identificação do setor/local (se houver mais de um)</label><input type="text" id="local_nome" placeholder="ex.: galpão de produção">
   <div class="linha">
     <div><label>Tipo de construção</label><input type="text" id="local_tipo" placeholder="ex.: alvenaria e estrutura metálica"></div>
     <div><label>Dimensões do recinto</label><input type="text" id="local_dimensoes" placeholder="ex.: 30,0 x 15,0 metros"></div>
@@ -151,6 +159,9 @@
     <div><label>Iluminação</label><input type="text" id="local_iluminacao"></div>
     <div><label>Estado de conservação</label><input type="text" id="local_conservacao"></div>
   </div>
+  <label style="margin-top:.8rem">Outros setores/locais vistoriados</label>
+  <div id="lst_locais"></div>
+  <button class="add" type="button" onclick="addRow('locais')">+ setor/local</button>
 </div></details>
 
 <details id="sec-atividades"><summary>7. Atividades <span class="falta"></span></summary><div class="corpo">
@@ -231,15 +242,28 @@
     <label>Neutralização por EPI? Qual?</label><input type="text" id="conclusao_epi" placeholder="em branco = não neutralizado">
     <label>Período e local/setor abrangidos</label><input type="text" id="conclusao_periodo">
     <label>Delimitação métrica da área de risco (periculosidade)</label><input type="text" id="conclusao_delimitacao">
+    <label style="margin-top:.8rem">Parágrafos adicionais da conclusão (texto literal do perito, um por linha)</label>
+    <div id="lst_conclusao_paragrafos"></div>
+    <button class="add" type="button" onclick="addRow('conclusao_paragrafos')">+ parágrafo</button>
   </div>
 </div></details>
 
 <details id="sec-quesitos"><summary>14. Quesitos</summary><div class="corpo">
-  <div class="dica">Pergunta copiada literal dos autos, com o número original (mesmo se saltar). Resposta em branco = [AGUARDANDO DEFINIÇÃO DO PERITO].</div>
-  <label>Do reclamante</label><div id="lst_quesitos_reclamante"></div>
+  <div class="dica">O caminho fácil: <b>cole o texto corrido dos quesitos</b> (copiado do PJe/PDF) na caixa da parte — a segmentação em quesito por quesito é feita depois, no escritório. As linhas manuais continuam valendo: pergunta literal dos autos, número original (mesmo se saltar), resposta em branco = [AGUARDANDO DEFINIÇÃO DO PERITO].</div>
+  <label>Do reclamante — colagem do texto corrido</label>
+  <textarea id="quesitos_colados_reclamante" placeholder="cole aqui os quesitos como vieram dos autos"></textarea>
+  <label>Do reclamante — um a um</label><div id="lst_quesitos_reclamante"></div>
   <button class="add" type="button" onclick="addRow('quesitos_reclamante')">+ quesito do reclamante</button>
-  <label style="margin-top:.8rem">Da(s) reclamada(s)</label><div id="lst_quesitos_reclamada"></div>
+  <label style="margin-top:.8rem">Da reclamada — colagem do texto corrido</label>
+  <textarea id="quesitos_colados_reclamada" placeholder="cole aqui os quesitos como vieram dos autos"></textarea>
+  <label>Da reclamada — um a um</label><div id="lst_quesitos_reclamada"></div>
   <button class="add" type="button" onclick="addRow('quesitos_reclamada')">+ quesito da reclamada</button>
+  <div id="grp_quesitos_reclamada2" class="oculto">
+    <label style="margin-top:.8rem">Da 2ª reclamada — colagem do texto corrido</label>
+    <textarea id="quesitos_colados_reclamada2" placeholder="cole aqui os quesitos como vieram dos autos"></textarea>
+    <label>Da 2ª reclamada — um a um</label><div id="lst_quesitos_reclamada2"></div>
+    <button class="add" type="button" onclick="addRow('quesitos_reclamada2')">+ quesito da 2ª reclamada</button>
+  </div>
 </div></details>
 
 <details id="sec-obs"><summary>15. Observações livres</summary><div class="corpo">
@@ -276,23 +300,33 @@ const VARAS = {"5.02.0383":"3ª Vara do Trabalho de Osasco – SP","5.02.0435":"
 const LS = "vistoria_szulc_v1";
 
 /* ============================ linhas dinâmicas =========================== */
+const QUESITO_CAMPOS = [["numero","Nº nos autos"],["grupo","Grupo/título antes do quesito, se houver (ex.: DA INSALUBRIDADE)"],
+ ["pergunta","Pergunta (literal)",{area:true}],["resposta","Resposta",{area:true}]];
 const ROWS = {
   cicerones:{campos:[["nome","Nome"],["cargo","Cargo"]]},
   epcs:{campos:[["nome","EPC"]]},
   epis:{campos:[["nome","EPI"],["ca","C.A. (só números)"]]},
-  ruido:{campos:[["local","Local"],["nivel","Nível dB(A)"],["periodo","Período de exposição"]]},
-  controversias:{campos:[["reclamante","Versão do reclamante"],["reclamada","Versão da reclamada"],["evidencia","Evidência objetiva"]],area:true},
-  quesitos_reclamante:{campos:[["numero","Nº nos autos"],["pergunta","Pergunta (literal)"],["resposta","Resposta"]],area:true},
-  quesitos_reclamada:{campos:[["numero","Nº nos autos"],["pergunta","Pergunta (literal)"],["resposta","Resposta"]],area:true},
+  ruido:{campos:[["local","Local"],["nivel","Nível dB(A)"],["periodo","Período de exposição"],
+    ["origem","Origem da leitura",{sel:[["medida","Medida em campo"],["documental","Documental (LTCAT/PGR/laudo dos autos)"]]}]]},
+  locais:{campos:[["nome","Setor/identificação"],["tipo","Tipo de construção"],["dimensoes","Dimensões"],
+    ["pe_direito","Pé direito"],["piso","Piso"],["ventilacao","Ventilação"],["iluminacao","Iluminação"],["conservacao","Estado de conservação"]]},
+  conclusao_paragrafos:{campos:[["texto","Parágrafo (texto literal do perito)",{area:true}]]},
+  controversias:{campos:[["reclamante","Versão do reclamante",{area:true}],["reclamada","Versão da reclamada",{area:true}],["evidencia","Evidência objetiva",{area:true}]]},
+  quesitos_reclamante:{campos:QUESITO_CAMPOS},
+  quesitos_reclamada:{campos:QUESITO_CAMPOS},
+  quesitos_reclamada2:{campos:QUESITO_CAMPOS},
 };
 function addRow(tipo, valores){
   const cont = document.getElementById("lst_"+tipo);
   const div = document.createElement("div");
   div.className = "row-dyn"; div.dataset.tipo = tipo;
   let h = '<button class="rm" type="button" onclick="this.parentNode.remove();salvar()">×</button>';
-  for(const [k,rotulo] of ROWS[tipo].campos){
+  for(const [k,rotulo,opt] of ROWS[tipo].campos){
     const v = valores && valores[k] ? valores[k] : "";
-    if(ROWS[tipo].area && (k==="pergunta"||k==="resposta"||k.length>9))
+    if(opt && opt.sel)
+      h += `<label>${rotulo}</label><select data-k="${k}"><option value="">—</option>`+
+        opt.sel.map(([val,r])=>`<option value="${val}"${v===val?" selected":""}>${r}</option>`).join("")+`</select>`;
+    else if(opt && opt.area)
       h += `<label>${rotulo}</label><textarea data-k="${k}">${esc(v)}</textarea>`;
     else
       h += `<label>${rotulo}</label><input type="text" data-k="${k}" value="${esc(v)}">`;
@@ -305,12 +339,15 @@ function addRow(tipo, valores){
   }
 }
 function checaNivel(inp,fb){
-  const n = parseInt((inp.value||"").replace(",", "."),10);
   if(!inp.value){fb.textContent="";return}
+  const n = parseFloat((inp.value||"").replace(",", "."));
   if(isNaN(n)){fb.textContent="não entendi o número";fb.className="valida aviso";return}
-  if(ANEXO1[n]){fb.textContent=`Anexo 1: máx. exposição diária ${ANEXO1[n]}`;fb.className="valida ok"}
-  else if(n>115){fb.textContent="acima de 115 dB(A): risco grave e iminente — redação do perito";fb.className="valida aviso"}
-  else {fb.textContent=`${n} dB(A) não consta da tabela do Anexo 1 — perguntar ao perito qual linha adota`;fb.className="valida erro"}
+  if(n<85){fb.textContent=`${inp.value} dB(A): abaixo de 85 — dentro do limite do Anexo 1 para jornada de 8 horas`;fb.className="valida ok";return}
+  if(n>115){fb.textContent="acima de 115 dB(A): risco grave e iminente — redação do perito";fb.className="valida aviso";return}
+  if(Number.isInteger(n) && ANEXO1[n]){fb.textContent=`Anexo 1: máx. exposição diária ${ANEXO1[n]}`;fb.className="valida ok";return}
+  const prox = Object.keys(ANEXO1).map(Number).filter(k=>k>=n).sort((a,b)=>a-b)[0];
+  fb.textContent=`${inp.value} dB(A) não é linha exata do Anexo 1 — linha imediatamente superior: ${prox} dB(A) (máx. ${ANEXO1[prox]}). Confirmar com o perito qual linha adota`;
+  fb.className="valida aviso";
 }
 
 /* =============================== NR-15 / 16 ============================== */
@@ -381,6 +418,23 @@ function mudaConclusao(){
   const v = document.getElementById("conclusao_resultado").value;
   document.getElementById("grp_conclusao").classList.toggle("oculto", v==="aguardando");
 }
+function mudaReclamadas(){
+  const duas = document.getElementById("meta_n_reclamadas").value==="2";
+  document.getElementById("grp_reclamada2").classList.toggle("oculto", !duas);
+  document.getElementById("grp_quesitos_reclamada2").classList.toggle("oculto", !duas);
+}
+function checaDatas(){
+  const a=document.getElementById("vinculo_admissao").value, d=document.getElementById("vinculo_demissao").value;
+  const fb=document.getElementById("v_datas");
+  if(a && d && d<a){fb.textContent="✗ demissão anterior à admissão — confira as datas";fb.className="valida erro"}
+  else fb.textContent="";
+}
+function checaHoras(){
+  const i=document.getElementById("vistoria_hora_inicio").value, t=document.getElementById("vistoria_hora_termino").value;
+  const fb=document.getElementById("v_horas");
+  if(i && t && t<=i){fb.textContent="⚠ término não é depois do início — confira as horas";fb.className="valida aviso"}
+  else fb.textContent="";
+}
 
 /* ============================ salvar / restaurar ========================= */
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;")}
@@ -407,7 +461,7 @@ function aplicar(dados){
     document.getElementById("lst_"+tipo).innerHTML="";
     (dados.listas && dados.listas[tipo] || []).forEach(v=>addRow(tipo,v));
   }
-  validaCNJ(); mudaInstrumento(); mudaConclusao(); pendencias();
+  validaCNJ(); mudaInstrumento(); mudaConclusao(); mudaReclamadas(); checaDatas(); checaHoras(); pendencias();
   document.querySelectorAll('#lst_ruido .row-dyn').forEach(r=>{
     const i=r.querySelector('[data-k="nivel"]'), f=r.querySelector(".valida");
     if(i&&f) checaNivel(i,f);
@@ -418,14 +472,29 @@ function salvar(){
   clearTimeout(tSalvar);
   tSalvar=setTimeout(()=>{
     try{ localStorage.setItem(LS, JSON.stringify(coletar()));
+      localStorage.setItem(LS+"_edit", String(Date.now()));
       document.getElementById("statusSalvo").textContent="salvo "+new Date().toLocaleTimeString("pt-BR");
     }catch(e){ document.getElementById("statusSalvo").textContent="⚠ não consegui salvar"; }
     pendencias();
   },400);
 }
+function temDados(){
+  const d=coletar();
+  for(const id in d.campos){ const v=d.campos[id]; if(v && v!==true && String(v).trim() && id!=="meta_n_reclamadas" && id!=="conclusao_resultado") return true; if(v===true) return true; }
+  for(const t in d.listas) if(d.listas[t].some(r=>Object.values(r).some(x=>String(x||"").trim()))) return true;
+  return false;
+}
 function limpar(){
-  if(!confirm("Apagar tudo que foi preenchido neste aparelho?")) return;
-  localStorage.removeItem(LS); location.reload();
+  let aviso="Apagar tudo que foi preenchido neste aparelho?";
+  try{
+    const exp=+(localStorage.getItem(LS+"_export")||0), ed=+(localStorage.getItem(LS+"_edit")||0);
+    if(temDados() && ed>exp){
+      if(confirm("Há alterações que NUNCA foram exportadas.\n\nExportar antes de apagar?")){ exportar(); return; }
+      aviso="Apagar SEM exportar? O que não foi exportado se perde de vez.";
+    }
+  }catch(e){}
+  if(!confirm(aviso)) return;
+  localStorage.removeItem(LS); localStorage.removeItem(LS+"_edit"); location.reload();
 }
 
 /* =============================== pendências ============================== */
@@ -436,20 +505,30 @@ const OBRIG = [["meta_categoria","categoria da perícia"],["meta_metodologia","l
  ["vinculo_setor","setor"],["reclamada_endereco","endereço vistoriado"],["reclamada_atividade","atividade da reclamada"],
  ["vistoria_data","data da vistoria"],["vistoria_hora_inicio","hora de início"],["vistoria_hora_termino","hora de término"],
  ["atividades_texto","descrição das atividades"]];
-function pendencias(){
+function listaPendencias(){
   const p=[];
   for(const [id,nome] of OBRIG){ const el=document.getElementById(id); if(el && !el.value) p.push(nome); }
+  if(document.getElementById("meta_n_reclamadas").value==="2" && !document.getElementById("processo_reclamada2").value)
+    p.push("razão social da 2ª reclamada");
   if(!document.querySelector("#lst_cicerones .row-dyn")) p.push("cicerones presentes");
   if(!document.querySelector("#lst_epis .row-dyn")) p.push("EPIs (ou registrar que não houve)");
   document.querySelectorAll("#lst_epis .row-dyn").forEach((r,i)=>{
     const ca=r.querySelector('[data-k="ca"]').value.trim();
     if(ca && !/^\d{3,6}$/.test(ca)) p.push(`C.A. do EPI ${i+1} com formato estranho ("${ca}")`);
   });
+  document.querySelectorAll("#lst_ruido .row-dyn").forEach((r,i)=>{
+    const o=r.querySelector('[data-k="origem"]'), n=r.querySelector('[data-k="nivel"]');
+    if(o && n && n.value.trim() && !o.value) p.push(`leitura de ruído ${i+1} sem origem (medida ou documental)`);
+  });
   const cat=document.getElementById("meta_categoria").value;
   if(cat && cat!=="periculosidade")
     for(let n=1;n<=11;n++) if(!document.getElementById(`nr15_${n}_modo`).value) p.push(`NR-15 agente ${n} sem resposta`);
   if(cat && cat!=="insalubridade")
     for(let n=1;n<=11;n++) if(!document.getElementById(`nr16_${n}_modo`).value) p.push(`NR-16 item ${n} sem resposta`);
+  return p;
+}
+function pendencias(){
+  const p=listaPendencias();
   const ul=document.getElementById("lstPend");
   ul.innerHTML = p.length ? p.map(x=>`<li>${x}</li>`).join("") : "<li style='color:var(--ok)'>nada pendente ✓</li>";
   document.querySelector("#pendencias summary").textContent = p.length?`⚠ Pendências antes de sair do local (${p.length})`:"✓ Sem pendências";
@@ -461,6 +540,8 @@ function campo(lista, caminho, valor, status){
   lista.push({campo:caminho, valor: v||null, origem:"formulario", status: status || (v?"confirmado":"lacuna")});
 }
 function exportar(){
+  const pend = listaPendencias();
+  if(pend.length && !confirm(`Exportar mesmo com ${pend.length} pendência(s)?\n\n— `+pend.join("\n— "))) return;
   const d = coletar(), c = [], hoje = new Date().toISOString().slice(0,10);
   const g = id => (d.campos[id]||"").toString().trim();
   const cat = g("meta_categoria")||"[não definida]";
@@ -468,13 +549,19 @@ function exportar(){
   campo(c,"processo.numero_cnj",g("processo_numero_cnj"));
   campo(c,"processo.vara",g("processo_vara")); campo(c,"processo.comarca_uf",g("processo_comarca_uf"));
   campo(c,"processo.reclamante",g("processo_reclamante")); campo(c,"processo.reclamada",g("processo_reclamada"));
+  if(g("meta_n_reclamadas")==="2" || g("processo_reclamada2")) campo(c,"processo.reclamada2",g("processo_reclamada2"));
   campo(c,"processo.honorarios",g("processo_honorarios")); campo(c,"processo.cidade",g("processo_cidade"));
   campo(c,"processo.data",g("processo_data"));
   ["admissao","demissao","funcao","jornada","local","setor"].forEach(k=>campo(c,"vinculo."+k,g("vinculo_"+k)));
   ["endereco","atividade","cnae","grau_risco"].forEach(k=>campo(c,"reclamada."+k,g("reclamada_"+k)));
   ["data","hora_inicio","hora_termino","data_peticao_pje"].forEach(k=>campo(c,"vistoria."+k,g("vistoria_"+k)));
   (d.listas.cicerones||[]).forEach((r,i)=>campo(c,`vistoria.cicerone[${i+1}]`,`${r.nome} — ${r.cargo}`));
+  if(g("local_nome")) campo(c,"local.nome",g("local_nome"));
   ["tipo","dimensoes","pe_direito","piso","ventilacao","iluminacao","conservacao"].forEach(k=>campo(c,"local."+k,g("local_"+k)));
+  (d.listas.locais||[]).forEach((r,i)=>{
+    for(const k of ["nome","tipo","dimensoes","pe_direito","piso","ventilacao","iluminacao","conservacao"])
+      if((r[k]||"").trim()) campo(c,`local.adicional[${i+1}].${k}`,r[k]);
+  });
   campo(c,"atividades.texto",g("atividades_texto"));
   campo(c,"protecao.epc_ausente", d.campos.epc_ausente?"sim":"");
   (d.listas.epcs||[]).forEach((r,i)=>campo(c,`protecao.epc[${i+1}]`,r.nome));
@@ -494,18 +581,26 @@ function exportar(){
       campo(c,`avaliacoes.nr15[1].medicao[${i+1}].local`,r.local);
       campo(c,`avaliacoes.nr15[1].medicao[${i+1}].nivel_db`,r.nivel);
       campo(c,`avaliacoes.nr15[1].medicao[${i+1}].periodo`,r.periodo);
+      campo(c,`avaliacoes.nr15[1].medicao[${i+1}].origem`,r.origem);
     });
   }
+  // lacunas de NR só saem para a(s) categoria(s) da perícia; texto preenchido sai sempre
   for(let n=1;n<=11;n++){
-    campo(c,`avaliacoes.nr15[${n}].modo`, g(`nr15_${n}_modo`) || (g(`nr15_${n}_texto`)?"proprio":""));
+    const modo = g(`nr15_${n}_modo`) || (g(`nr15_${n}_texto`)?"proprio":"");
+    if(cat==="periculosidade" && !modo) continue;
+    campo(c,`avaliacoes.nr15[${n}].modo`, modo);
     if(g(`nr15_${n}_texto`)) campo(c,`avaliacoes.nr15[${n}].texto_proprio`,g(`nr15_${n}_texto`));
   }
   for(let n=1;n<=11;n++){
-    campo(c,`avaliacoes.nr16[${n}].modo`, g(`nr16_${n}_modo`) || (g(`nr16_${n}_texto`)?"proprio":""));
+    const modo = g(`nr16_${n}_modo`) || (g(`nr16_${n}_texto`)?"proprio":"");
+    if(cat==="insalubridade" && !modo) continue;
+    campo(c,`avaliacoes.nr16[${n}].modo`, modo);
     if(g(`nr16_${n}_texto`)) campo(c,`avaliacoes.nr16[${n}].texto_proprio`,g(`nr16_${n}_texto`));
   }
-  campo(c,"avaliacoes.nr16[2].distancia",g("nr16_2_distancia"));
-  campo(c,"avaliacoes.nr16[2].volume",g("nr16_2_volume"));
+  if(cat!=="insalubridade" || g("nr16_2_distancia") || g("nr16_2_volume")){
+    campo(c,"avaliacoes.nr16[2].distancia",g("nr16_2_distancia"));
+    campo(c,"avaliacoes.nr16[2].volume",g("nr16_2_volume"));
+  }
   (d.listas.controversias||[]).forEach((r,i)=>{
     campo(c,`controversia[${i+1}].tese_reclamante`,r.reclamante);
     campo(c,`controversia[${i+1}].tese_reclamada`,r.reclamada);
@@ -517,10 +612,16 @@ function exportar(){
   }else{
     campo(c,"conclusao.resultado",res);
     ["anexo","grau","agente","epi","periodo","delimitacao"].forEach(k=>campo(c,"conclusao."+k,g("conclusao_"+k)));
+    (d.listas.conclusao_paragrafos||[]).forEach((r,i)=>{
+      if((r.texto||"").trim()) c.push({campo:`conclusao.paragrafo[${i+1}]`,valor:r.texto.trim(),origem:"perito",status:"confirmado"});
+    });
   }
-  ["reclamante","reclamada"].forEach(parte=>{
+  ["reclamante","reclamada","reclamada2"].forEach(parte=>{
+    const colado=g("quesitos_colados_"+parte);
+    if(colado) c.push({campo:`quesitos.${parte}.texto_colado`,valor:colado,origem:"colagem",status:"confirmado"});
     (d.listas["quesitos_"+parte]||[]).forEach((r,i)=>{
       campo(c,`quesitos.${parte}[${i+1}].numero_autos`,r.numero);
+      if((r.grupo||"").trim()) campo(c,`quesitos.${parte}[${i+1}].grupo`,r.grupo);
       c.push({campo:`quesitos.${parte}[${i+1}].pergunta`,valor:r.pergunta||null,origem:`quesito#${r.numero||i+1}`,status:r.pergunta?"confirmado":"lacuna"});
       c.push({campo:`quesitos.${parte}[${i+1}].resposta`,valor:r.resposta||null,origem:"formulario",status:r.resposta?"confirmado":"aguardando_perito"});
     });
@@ -532,12 +633,14 @@ function exportar(){
   c.forEach(x=>{ if(x.valor) linhas.push(`${x.campo}: ${x.valor}`); });
 
   // um arquivo só: exportação dupla é bloqueada no Safari do iPhone
+  // backup_formulario = estado bruto do formulário, para reimportar em qualquer aparelho
   const registro = {meta:{arquivo_docx:null,categoria:cat,
       metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html"},
-    campos:c, ditado_txt:linhas.join("\n")};
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v3-2026-08-15"},
+    campos:c, ditado_txt:linhas.join("\n"), backup_formulario:d};
 
+  try{ localStorage.setItem(LS+"_export", String(Date.now())); }catch(e){}
   const nome = ((g("processo_reclamante")||"vistoria").split(" ")[0]+"_"+(g("vistoria_data")||hoje))+"_vistoria.json";
   entregar(nome, JSON.stringify(registro,null,2));
 }
@@ -575,27 +678,65 @@ function modalCopia(nome, conteudo){
   }
   document.getElementById("txtCopia").value = "// "+nome+"\n"+conteudo;
 }
+function registroParaBackup(j){
+  // mapa reverso dos caminhos do registro (v1/v2, sem backup embutido) para o formulário
+  const d={campos:{},listas:{}}; for(const t in ROWS) d.listas[t]=[];
+  const put=(t,i,k,v)=>{ d.listas[t][i-1]=d.listas[t][i-1]||{}; d.listas[t][i-1][k]=v; };
+  (j.campos||[]).forEach(x=>{
+    if(x.valor===null||x.valor===undefined) return;
+    const v=String(x.valor), campo=x.campo; let m;
+    if(m=campo.match(/^vistoria\.cicerone\[(\d+)\]$/)){ const p=v.split(" — "); put("cicerones",+m[1],"nome",p[0]||""); put("cicerones",+m[1],"cargo",p.slice(1).join(" — ")); return; }
+    if(m=campo.match(/^protecao\.epc\[(\d+)\]$/)){ put("epcs",+m[1],"nome",v); return; }
+    if(m=campo.match(/^protecao\.epi\[(\d+)\]\.(nome|ca)$/)){ put("epis",+m[1],m[2],v); return; }
+    if(m=campo.match(/^avaliacoes\.nr15\[1\]\.medicao\[(\d+)\]\.(local|nivel_db|periodo|origem)$/)){ put("ruido",+m[1],m[2]==="nivel_db"?"nivel":m[2],v); return; }
+    if(m=campo.match(/^local\.adicional\[(\d+)\]\.(\w+)$/)){ put("locais",+m[1],m[2],v); return; }
+    if(m=campo.match(/^conclusao\.paragrafo\[(\d+)\]$/)){ put("conclusao_paragrafos",+m[1],"texto",v); return; }
+    if(m=campo.match(/^controversia\[(\d+)\]\.(tese_reclamante|tese_reclamada|evidencia)$/)){ put("controversias",+m[1],m[2].replace("tese_",""),v); return; }
+    if(m=campo.match(/^quesitos\.(reclamante|reclamada2?)\[(\d+)\]\.(numero_autos|grupo|pergunta|resposta)$/)){ put("quesitos_"+m[1],+m[2],m[3]==="numero_autos"?"numero":m[3],v); return; }
+    if(m=campo.match(/^quesitos\.(reclamante|reclamada2?)\.texto_colado$/)){ d.campos["quesitos_colados_"+m[1]]=v; return; }
+    if(m=campo.match(/^avaliacoes\.(nr15|nr16)\[(\d+)\]\.(modo|texto_proprio)$/)){ d.campos[`${m[1]}_${m[2]}_${m[3]==="modo"?"modo":"texto"}`]=v; return; }
+    if(campo==="avaliacoes.nr16[2].distancia"){ d.campos.nr16_2_distancia=v; return; }
+    if(campo==="avaliacoes.nr16[2].volume"){ d.campos.nr16_2_volume=v; return; }
+    if(campo==="protecao.epc_ausente"){ d.campos.epc_ausente=(v==="sim"); return; }
+    if(m=campo.match(/^instrumento\.portador\.(\w+)$/)){ d.campos["portador_"+m[1]]=v; return; }
+    if(m=campo.match(/^instrumento\.(tipo|marca|modelo)$/)){ d.campos["instrumento_"+m[1]]=v; return; }
+    d.campos[campo.replace(/\./g,"_")]=v;   // processo.*, vinculo.*, reclamada.*, vistoria.*, local.*, conclusao.*, atividades/observacoes.texto
+  });
+  const me=j.meta||{};
+  if(me.categoria && me.categoria!=="[não definida]") d.campos.meta_categoria=me.categoria;
+  if("metodologia" in me) d.campos.meta_metodologia=me.metodologia?"sim":"nao";
+  if(me.genero_reclamante) d.campos.meta_genero=me.genero_reclamante;
+  if(me.n_reclamadas) d.campos.meta_n_reclamadas=String(me.n_reclamadas);
+  return d;
+}
 function importar(ev){
   const f=ev.target.files[0]; if(!f) return;
   const r=new FileReader();
   r.onload=()=>{ try{
       const j=JSON.parse(r.result);
-      if(j.campos && !Array.isArray(j.campos)) { aplicar(j); }   // backup do formulário
-      else alert("Este JSON é um registro exportado, não um backup do formulário. Importe o backup salvo neste aparelho ou repreencha.");
+      if(j.backup_formulario && j.backup_formulario.campos){ aplicar(j.backup_formulario); }   // registro v3+: backup embutido
+      else if(j.campos && !Array.isArray(j.campos)){ aplicar(j); }                             // backup bruto do formulário
+      else if(Array.isArray(j.campos)){ aplicar(registroParaBackup(j));
+        alert("Registro antigo importado pelo mapa reverso — confira os campos antes de seguir."); }
+      else alert("Formato não reconhecido. Importe um *_vistoria.json exportado por este formulário.");
       salvar();
     }catch(e){ alert("Não consegui ler o arquivo: "+e.message); } };
   r.readAsText(f);
+  ev.target.value="";
 }
 
 /* ================================== init ================================= */
 document.getElementById("avisoJS").remove();   // JS rodou: o aviso sai
 montaNR();
 document.getElementById("processo_numero_cnj").addEventListener("blur", ()=>{validaCNJ();salvar();});
+["vinculo_admissao","vinculo_demissao"].forEach(id=>document.getElementById(id).addEventListener("change", checaDatas));
+["vistoria_hora_inicio","vistoria_hora_termino"].forEach(id=>document.getElementById(id).addEventListener("change", checaHoras));
 document.getElementById("form").addEventListener("input", salvar);
 document.getElementById("form").addEventListener("change", salvar);
 try{ const s=localStorage.getItem(LS); if(s) aplicar(JSON.parse(s)); }catch(e){}
 if(!document.querySelector("#lst_cicerones .row-dyn")) addRow("cicerones");
 if(!document.querySelector("#lst_epis .row-dyn")) addRow("epis");
+mudaReclamadas();
 pendencias();
 </script>
 <script>
