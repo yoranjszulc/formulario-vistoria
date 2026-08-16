@@ -49,12 +49,27 @@
   .oculto{display:none}
   .chk{display:flex;align-items:flex-start;gap:.45rem;font-size:.85rem;margin:.4rem 0}
   .chk input{margin-top:.2rem}
+  main>details{scroll-margin-top:4.8rem}
+  .hbts{display:flex;gap:.4rem;flex-shrink:0}
+  .hbts button{font:inherit;font-size:.78rem;padding:.35rem .55rem;border-radius:6px;border:1px solid rgba(255,255,255,.75);background:transparent;color:#fff;cursor:pointer}
+  #veu{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20}
+  #menuSecoes{position:fixed;top:0;right:0;bottom:0;width:min(78vw,300px);background:#fff;z-index:21;overflow:auto;padding:.5rem .6rem;box-shadow:-2px 0 8px rgba(0,0,0,.25)}
+  #menuSecoes a{display:block;padding:.6rem .4rem;border-bottom:1px solid var(--borda);color:var(--azul);text-decoration:none;font-size:.9rem}
+  #telaRascunhos{position:fixed;inset:0;background:var(--cinza);z-index:22;overflow:auto;padding:.8rem .8rem 3rem}
 </style>
 </head>
 <body>
 <header>
-  <h1>Vistoria — Laudo Técnico Pericial</h1>
-  <div class="sub">Perito Algério Szulc · v3 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
+    <div style="min-width:0">
+      <h1>Vistoria — Laudo Técnico Pericial</h1>
+      <div class="sub">Perito Algério Szulc · v4 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+    </div>
+    <div class="hbts">
+      <button type="button" onclick="abrirRascunhos()">Vistorias</button>
+      <button type="button" onclick="abrirSecoes()">Seções</button>
+    </div>
+  </div>
 </header>
 <main id="form">
 
@@ -278,7 +293,21 @@
   <button id="btExportar" type="button" onclick="exportar()">Exportar (registro + ditado)</button>
   <button class="sec" type="button" onclick="document.getElementById('importFile').click()">Importar</button>
   <input type="file" id="importFile" class="oculto" accept=".json" onchange="importar(event)">
-  <button class="sec" type="button" onclick="limpar()">Limpar tudo</button>
+  <button class="sec" type="button" onclick="limpar()">Limpar esta vistoria</button>
+</div>
+
+<div id="veu" class="oculto" onclick="fechaMenus()"></div>
+<nav id="menuSecoes" class="oculto"></nav>
+<div id="telaRascunhos" class="oculto">
+  <div style="max-width:640px;margin:0 auto">
+    <h2 style="font-size:1.05rem;color:var(--azul);margin:.2rem 0 .1rem">Vistorias neste aparelho</h2>
+    <div class="dica">Cada vistoria é um rascunho separado, salvo só neste aparelho. Abrir outra não apaga nada do que está preenchido.</div>
+    <div id="lstRascunhos"></div>
+    <div style="display:flex;gap:.5rem;margin-top:.6rem">
+      <button class="add" type="button" onclick="novaVistoria()">+ Nova vistoria</button>
+      <button class="add" type="button" onclick="fechaMenus()">Voltar ao formulário</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -297,7 +326,82 @@ const ANEXO1 = {85:"8 horas",86:"7 horas",87:"6 horas",88:"5 horas",89:"4 h 30 m
  108:"20 minutos",110:"15 minutos",112:"10 minutos",114:"8 minutos",115:"7 minutos"};
 const VARAS = {"5.02.0383":"3ª Vara do Trabalho de Osasco – SP","5.02.0435":"5ª Vara do Trabalho de Santo André – SP",
  "5.02.0461":"1ª Vara do Trabalho de São Bernardo do Campo – SP","5.02.0468":"8ª Vara do Trabalho de São Bernardo do Campo – SP"};
-const LS = "vistoria_szulc_v1";
+/* ========================== rascunhos (v4) =============================== */
+/* Cada vistoria é um rascunho: vistoria_szulc_d_<id> (+_edit/_export).       */
+/* Índice em vistoria_szulc_idx. A chave antiga (v1–v3) migra para o 1º      */
+/* rascunho e NÃO é apagada — seguro contra retorno de versão do app.        */
+const LS_PREFIX="vistoria_szulc_d_", LS_IDX="vistoria_szulc_idx", LS_LEGADO="vistoria_szulc_v1";
+function novoId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+let IDX=null, LS=LS_LEGADO;
+try{
+  try{ IDX=JSON.parse(localStorage.getItem(LS_IDX)); }catch(e){ IDX=null; }
+  if(!IDX || !IDX.ativo || !Array.isArray(IDX.lista) || !IDX.lista.some(r=>r.id===IDX.ativo)){
+    const id=novoId(); IDX={ativo:id, lista:[{id, criado:Date.now()}]};
+    const leg=localStorage.getItem(LS_LEGADO);
+    if(leg){
+      localStorage.setItem(LS_PREFIX+id, leg);
+      ["_edit","_export"].forEach(s=>{ const v=localStorage.getItem(LS_LEGADO+s); if(v) localStorage.setItem(LS_PREFIX+id+s, v); });
+    }
+    localStorage.setItem(LS_IDX, JSON.stringify(IDX));
+  }
+  LS=LS_PREFIX+IDX.ativo;
+}catch(e){}
+function gravarIdx(){ try{ localStorage.setItem(LS_IDX, JSON.stringify(IDX)); }catch(e){} }
+function infoRascunho(id){
+  let c={}; try{ c=(JSON.parse(localStorage.getItem(LS_PREFIX+id)||"{}").campos)||{}; }catch(e){}
+  const ed=+(localStorage.getItem(LS_PREFIX+id+"_edit")||0), ex=+(localStorage.getItem(LS_PREFIX+id+"_export")||0);
+  return {nome:c.processo_reclamante||"", cnj:c.processo_numero_cnj||"", dataVist:c.vistoria_data||"",
+    edit:ed, semExporte: ed>ex};
+}
+function brData(iso){ const m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:iso; }
+function fechaMenus(){ ["veu","menuSecoes","telaRascunhos"].forEach(i=>document.getElementById(i).classList.add("oculto")); }
+function abrirRascunhos(){
+  if(!IDX){ alert("Rascunhos indisponíveis: este navegador está sem armazenamento local."); return; }
+  flushSalvar();
+  const cont=document.getElementById("lstRascunhos"); cont.innerHTML="";
+  IDX.lista.slice().sort((a,b)=>(infoRascunho(b.id).edit||b.criado)-(infoRascunho(a.id).edit||a.criado)).forEach(r=>{
+    const i=infoRascunho(r.id), ativo=r.id===IDX.ativo;
+    const div=document.createElement("div"); div.className="row-dyn";
+    div.innerHTML =
+      `<b>${esc(i.nome||"(sem reclamante)")}</b>${ativo?' <span style="color:var(--ok);font-size:.78rem">· aberta agora</span>':""}`+
+      `<div class="dica">${esc(i.cnj||"processo não informado")}${i.dataVist?" · vistoria "+brData(i.dataVist):""}</div>`+
+      `<div class="dica">${i.edit?"editada "+new Date(i.edit).toLocaleString("pt-BR"):"nunca editada"}`+
+      `${i.semExporte?' · <span style="color:var(--erro)">nunca exportada</span>':""}</div>`+
+      `<div style="margin-top:.35rem;display:flex;gap:.4rem">`+
+      (ativo?"":`<button class="add" type="button" onclick="trocarRascunho('${r.id}')">Abrir</button>`)+
+      `<button class="add" type="button" onclick="excluirRascunho('${r.id}')">Excluir</button></div>`;
+    cont.appendChild(div);
+  });
+  document.getElementById("menuSecoes").classList.add("oculto");
+  document.getElementById("veu").classList.add("oculto");
+  document.getElementById("telaRascunhos").classList.remove("oculto");
+}
+function trocarRascunho(id){ flushSalvar(); IDX.ativo=id; gravarIdx(); location.reload(); }
+function novaVistoria(){ flushSalvar(); const id=novoId(); IDX.lista.push({id,criado:Date.now()}); IDX.ativo=id; gravarIdx(); location.reload(); }
+function excluirRascunho(id){
+  const i=infoRascunho(id), eraAtivo=id===IDX.ativo;
+  let aviso=`Excluir a vistoria de ${i.nome||"(sem reclamante)"}?`;
+  if(i.semExporte) aviso=`A vistoria de ${i.nome||"(sem reclamante)"} tem alterações que NUNCA foram exportadas.\n\nExcluir assim mesmo? O que não foi exportado se perde de vez.`;
+  if(!confirm(aviso)) return;
+  ["","_edit","_export"].forEach(s=>{ try{ localStorage.removeItem(LS_PREFIX+id+s); }catch(e){} });
+  IDX.lista=IDX.lista.filter(r=>r.id!==id);
+  if(!IDX.lista.length) IDX.lista=[{id:novoId(), criado:Date.now()}];
+  if(eraAtivo) IDX.ativo=IDX.lista[0].id;
+  gravarIdx();
+  if(eraAtivo) location.reload(); else abrirRascunhos();
+}
+function abrirSecoes(){
+  const nav=document.getElementById("menuSecoes"); nav.innerHTML="";
+  document.querySelectorAll("main > details").forEach(d=>{
+    const a=document.createElement("a"); a.href="#";
+    a.textContent=(d.querySelector("summary").textContent||"").replace(/\s+/g," ").trim();
+    a.onclick=ev=>{ ev.preventDefault(); fechaMenus(); d.open=true; d.scrollIntoView({behavior:"smooth",block:"start"}); };
+    nav.appendChild(a);
+  });
+  document.getElementById("telaRascunhos").classList.add("oculto");
+  document.getElementById("veu").classList.remove("oculto");
+  nav.classList.remove("oculto");
+}
 
 /* ============================ linhas dinâmicas =========================== */
 const QUESITO_CAMPOS = [["numero","Nº nos autos"],["grupo","Grupo/título antes do quesito, se houver (ex.: DA INSALUBRIDADE)"],
@@ -467,10 +571,18 @@ function aplicar(dados){
     if(i&&f) checaNivel(i,f);
   });
 }
-let tSalvar=null;
+let tSalvar=null, salvarPendente=false;
+function flushSalvar(){
+  if(!salvarPendente) return;
+  clearTimeout(tSalvar); salvarPendente=false;
+  try{ localStorage.setItem(LS, JSON.stringify(coletar()));
+    localStorage.setItem(LS+"_edit", String(Date.now())); }catch(e){}
+}
 function salvar(){
+  salvarPendente=true;
   clearTimeout(tSalvar);
   tSalvar=setTimeout(()=>{
+    salvarPendente=false;
     try{ localStorage.setItem(LS, JSON.stringify(coletar()));
       localStorage.setItem(LS+"_edit", String(Date.now()));
       document.getElementById("statusSalvo").textContent="salvo "+new Date().toLocaleTimeString("pt-BR");
@@ -485,7 +597,7 @@ function temDados(){
   return false;
 }
 function limpar(){
-  let aviso="Apagar tudo que foi preenchido neste aparelho?";
+  let aviso="Apagar tudo que foi preenchido NESTA vistoria? (as outras vistorias do aparelho não são afetadas)";
   try{
     const exp=+(localStorage.getItem(LS+"_export")||0), ed=+(localStorage.getItem(LS+"_edit")||0);
     if(temDados() && ed>exp){
@@ -637,7 +749,7 @@ function exportar(){
   const registro = {meta:{arquivo_docx:null,categoria:cat,
       metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v3-2026-08-15"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v4-2026-08-16"},
     campos:c, ditado_txt:linhas.join("\n"), backup_formulario:d};
 
   try{ localStorage.setItem(LS+"_export", String(Date.now())); }catch(e){}
