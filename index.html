@@ -64,7 +64,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v5.2 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v5.3 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -122,6 +122,12 @@
     <div><label>Comarca / UF <b class="req">*</b></label><input type="text" id="processo_comarca_uf" placeholder="ex.: Osasco – SP"></div>
   </div>
   <label>Reclamante (nome completo) <b class="req">*</b></label><input type="text" id="processo_reclamante">
+  <div class="linha">
+    <div><label>CPF do reclamante</label><input type="text" id="reclamante_cpf" placeholder="000.000.000-00"></div>
+    <div><label>RG</label><input type="text" id="reclamante_rg"></div>
+    <div><label>Nascimento</label><input type="date" id="reclamante_nascimento"></div>
+    <div><label>Estado civil</label><input type="text" id="reclamante_estado_civil" placeholder="ex.: casado"></div>
+  </div>
   <label>Reclamada(s) — razão social <b class="req">*</b></label><input type="text" id="processo_reclamada">
   <div id="grp_reclamada2" class="oculto">
     <label>2ª reclamada (e seguintes) — razão social <b class="req">*</b></label>
@@ -153,6 +159,7 @@
   <label>Endereço vistoriado <b class="req">*</b></label><input type="text" id="reclamada_endereco">
   <label>Atividade principal <b class="req">*</b></label><input type="text" id="reclamada_atividade">
   <div class="linha">
+    <div><label>CNPJ</label><input type="text" id="reclamada_cnpj" placeholder="00.000.000/0000-00"></div>
     <div><label>CNAE</label><input type="text" id="reclamada_cnae" placeholder="00.00-0/00"></div>
     <div><label>Grau de risco (NR-4, Quadro I)</label>
       <select id="reclamada_grau_risco"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
@@ -589,6 +596,17 @@ function autoPreencher(t){
          poe("processo_comarca_uf", limpaNome(m[2]), "comarca", feitos); }
   m=t.match(/RECLAMANTES?\s*[:\-]\s*([^\n]{3,90})/i) || t.match(/\bAUTORA?\s*[:\-]\s*([^\n]{3,90})/i);
   if(m) poe("processo_reclamante", limpaNome(m[1]), "reclamante", feitos);
+  // qualificação da petição inicial (1ª ocorrência no processo)
+  m=t.match(/CPF[^\n\d]{0,20}(\d[\d. \-]{9,16}\d)/i);
+  if(m) poe("reclamante_cpf", m[1].replace(/\s+/g,""), "CPF", feitos);
+  m=t.match(/RG\s*n?[º°o.]?\s*(\d[\d. \-xX]{4,13}[\dxX])/i);
+  if(m) poe("reclamante_rg", m[1].replace(/\s+/g,""), "RG", feitos);
+  m=t.match(/nascid[oa]\s+em\s+(\d{2}\/\d{2}\/\d{4})/i);
+  if(m) poe("reclamante_nascimento", dataISO(m[1]), "nascimento", feitos);
+  m=t.match(/\b(solteir[oa]|casad[oa]|divorciad[oa]|desquitad[oa]|vi[úu]v[oa]|separad[oa](?:\s+judicialmente)?|em\s+uni[ãa]o\s+est[áa]vel)\b/i);
+  if(m) poe("reclamante_estado_civil", m[1].toLowerCase(), "estado civil", feitos);
+  m=t.match(/CNPJ[^\n\d]{0,30}(\d[\d. \/\-]{12,20}\d)/i);
+  if(m) poe("reclamada_cnpj", m[1].replace(/\s+/g,""), "CNPJ", feitos);
   const vistos=new Set(), recs=[];
   for(const x of t.matchAll(/RECLAMAD[AO]S?\s*[:\-]\s*([^\n]{3,110})/gi)){
     const v=limpaNome(x[1]); if(!v) continue;
@@ -878,6 +896,9 @@ function exportar(){
   if(g("meta_n_reclamadas")==="2" || g("processo_reclamada2")) campo(c,"processo.reclamada2",g("processo_reclamada2"));
   campo(c,"processo.honorarios",g("processo_honorarios")); campo(c,"processo.cidade",g("processo_cidade"));
   campo(c,"processo.data",g("processo_data"));
+  // dados pessoais e CNPJ: só saem quando preenchidos (não viram lacuna no laudo)
+  ["cpf","rg","nascimento","estado_civil"].forEach(k=>{ if(g("reclamante_"+k)) campo(c,"reclamante."+k,g("reclamante_"+k)); });
+  if(g("reclamada_cnpj")) campo(c,"reclamada.cnpj",g("reclamada_cnpj"));
   ["admissao","demissao","funcao","jornada","local","setor"].forEach(k=>campo(c,"vinculo."+k,g("vinculo_"+k)));
   ["endereco","atividade","cnae","grau_risco"].forEach(k=>campo(c,"reclamada."+k,g("reclamada_"+k)));
   ["data","hora_inicio","hora_termino","data_peticao_pje"].forEach(k=>campo(c,"vistoria."+k,g("vistoria_"+k)));
@@ -974,7 +995,7 @@ function exportar(){
   const registro = {meta:{arquivo_docx:null,categoria:cat,
       metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.2-2026-08-17"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.3-2026-08-17"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? {nome:ANEXO.nome, tamanho_bytes:ANEXO.tamanho, tipo:ANEXO.tipo,
       paginas:ANEXO.paginas, extraido_em:ANEXO.extraido_em, truncado:ANEXO.truncado,
