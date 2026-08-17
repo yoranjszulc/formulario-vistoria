@@ -64,7 +64,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v5.1 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v5.2 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -517,7 +517,7 @@ async function textoPDF(buf){
   pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const pdf=await pdfjsLib.getDocument({data:buf}).promise;
   let t="";
-  for(let p=1;p<=pdf.numPages && t.length<=ANEXO_CAP;p++){
+  for(let p=1;p<=pdf.numPages;p++){
     setAnexoMsg(`lendo página ${p}/${pdf.numPages}…`,"aviso");
     const tc=await (await pdf.getPage(p)).getTextContent();
     let y=null;                        // quebra de linha por posição vertical / hasEOL
@@ -553,15 +553,16 @@ async function anexarProcesso(ev){
     const buf=await f.arrayBuffer();
     const r = ext==="pdf" ? await textoPDF(buf) : await textoDOCX(buf);
     ANEXO.paginas=r.paginas;
-    let t=r.texto||"";
+    const completo=r.texto||"";           // a extração lê o processo inteiro
+    let t=completo;
     if(t.length>ANEXO_CAP){ t=t.slice(0,ANEXO_CAP); ANEXO.truncado=true; }
-    ANEXO.texto=t;
-    if(t.replace(/\s/g,"").length<200){
+    ANEXO.texto=t;                        // persistido: capado p/ caber no localStorage
+    if(completo.replace(/\s/g,"").length<200){
       ANEXO.texto="";
       setAnexoMsg(`⚠ ${f.name}: sem camada de texto (escaneado?). Nada extraído — anexo registrado; mande o arquivo junto com o JSON que a extração é feita por OCR na montagem do laudo.`,"aviso");
       salvar(); return;
     }
-    const feitos=autoPreencher(t);
+    const feitos=autoPreencher(completo);
     setAnexoMsg(`✓ ${f.name} lido${ANEXO.paginas?` (${ANEXO.paginas} pág.)`:""}${ANEXO.truncado?" · texto truncado no limite":""} — `+
       (feitos.length?`preenchi: ${feitos.join(", ")}. Confira os campos em amarelo.`
                     :"nenhum campo vazio para preencher (campo já preenchido não é tocado)."),"ok");
@@ -588,21 +589,34 @@ function autoPreencher(t){
          poe("processo_comarca_uf", limpaNome(m[2]), "comarca", feitos); }
   m=t.match(/RECLAMANTES?\s*[:\-]\s*([^\n]{3,90})/i) || t.match(/\bAUTORA?\s*[:\-]\s*([^\n]{3,90})/i);
   if(m) poe("processo_reclamante", limpaNome(m[1]), "reclamante", feitos);
-  const recs=[...t.matchAll(/RECLAMAD[AO]S?\s*[:\-]\s*([^\n]{3,110})/gi)]
-    .map(x=>limpaNome(x[1])).filter((v,i,a)=>v&&a.indexOf(v)===i);
+  const vistos=new Set(), recs=[];
+  for(const x of t.matchAll(/RECLAMAD[AO]S?\s*[:\-]\s*([^\n]{3,110})/gi)){
+    const v=limpaNome(x[1]); if(!v) continue;
+    const k=v.replace(/[^A-Za-zÀ-ü0-9]/g,"").toUpperCase();  // "FER KOD A" = "FERKODA" = "FERKODA S/A" (carimbo/pontuação)
+    if(vistos.has(k)) continue; vistos.add(k); recs.push(v);
+  }
   if(recs[0]) poe("processo_reclamada", recs[0], "reclamada", feitos);
   if(recs[1]){ poe("processo_reclamada2", recs[1], "2ª reclamada", feitos);
     const nr=document.getElementById("meta_n_reclamadas");
     if(nr.value!=="2"){ nr.value="2"; mudaReclamadas(); } }
   m=t.match(/admitid[oa]\s+(?:em|na data de)\s+(\d{2}\/\d{2}\/\d{4})/i);
   if(m) poe("vinculo_admissao", dataISO(m[1]), "admissão", feitos);
-  m=t.match(/(?:demitid[oa]|dispensad[oa]|desligad[oa])\s+(?:em|na data de)\s+(\d{2}\/\d{2}\/\d{4})/i);
+  m=t.match(/(?:demitid[oa]|dispensad[oa]|desligad[oa])\s+(?:em|na data de)\s+(\d{2}\/\d{2}\/\d{4})/i)
+   || t.match(/(\d{2}\/\d{2}\/\d{4})[^\n]{0,40}?foi\s+(?:demitid|dispensad|desligad)/i);
   if(m) poe("vinculo_demissao", dataISO(m[1]), "demissão", feitos);
   m=t.match(/fun[çc][ãa]o\s+de\s+([A-Za-zÀ-ü][^\n,.;()]{2,60})/i);
   if(m) poe("vinculo_funcao", limpaNome(m[1]), "função", feitos);
-  m=t.match(/honor[áa]rios?(?:\s+periciais)?[^\n]{0,60}?R\$\s*([\d.]+(?:,\d{2})?)/i);
-  if(m) poe("processo_honorarios", m[1], "honorários", feitos);
-  extrairQuesitos(t, feitos);
+  // honorários: só a fixação judicial dos periciais — pedido de parte não vale
+  m=t.match(/(?:fix|arbitr)\w*[^\n]{0,80}?honor[áa]rios(?:\s+periciais)?[^\n]{0,60}?R\$\s*([\d.]+(?:,\d{2})?)/i)
+   || t.match(/honor[áa]rios\s+periciais[^\n]{0,80}?(?:fixad|arbitrad)\w*[^\n]{0,40}?R\$\s*([\d.]+(?:,\d{2})?)/i);
+  if(m) poe("processo_honorarios", m[1], "honorários (fixação — conferir)", feitos);
+  m=t.match(/(?:estabelecid[ao]|com sede|sediad[ao])\s+(?:na|no|à|a|em)\s+([^\n]{10,140}?CEP[.:\s]*[\d.\- ]{8,12})/i);
+  if(m) poe("reclamada_endereco", m[1].replace(/\s+/g," ").trim(), "endereço da reclamada (sede — confirmar se é o vistoriado)", feitos);
+  // advogados da capa do PJe (ADVOGADO logo abaixo de cada parte) → autoria dos quesitos
+  const advs={reclamante:[], reclamada:[]};
+  for(const a of t.matchAll(/(RECLAMANTE|RECLAMAD[OA])S?\s*:\s*[^\n]+\n\s*ADVOGADOA?\s*:\s*([^\n]{3,60})/gi))
+    advs[/RECLAMANTE/i.test(a[1])?"reclamante":"reclamada"].push(a[2].trim().toUpperCase());
+  extrairQuesitos(t, feitos, advs);
   if(AUTO.has("processo_numero_cnj")){
     const antesVara=document.getElementById("processo_vara").value;
     validaCNJ();
@@ -615,29 +629,53 @@ function autoPreencher(t){
   checaDatas();
   return feitos;
 }
-function extrairQuesitos(t, feitos){
+function extrairQuesitos(t, feitos, advs){
   // rols de quesitos do texto do processo → caixas de colagem da seção 14
-  const cabs=[...t.matchAll(/(?:ROL\s+D[EO]S?\s+)?QUESITOS?\b[^\n]{0,80}/gi)];
-  const blocos=[];
-  cabs.forEach((c,ci)=>{
-    const ini=c.index+c[0].length;
-    const fim=Math.min(ci+1<cabs.length?cabs[ci+1].index:t.length, ini+9000);
-    let ch=t.slice(ini,fim);
+  const cnjProc=(document.getElementById("processo_numero_cnj").value||"").trim();
+  const blocos=[], usados=new Set();
+  const re=/QUESITOS?/g; let mm;
+  while((mm=re.exec(t))){
+    const li=t.lastIndexOf("\n", mm.index)+1;
+    if(usados.has(li)) continue; usados.add(li);
+    let lf=t.indexOf("\n", mm.index); if(lf<0) lf=t.length;
+    const linha=t.slice(li,lf).trim();
+    if(/[a-zà-üç]/.test(linha)) continue;                    // título de rol = linha toda em maiúsculas
+    if(/JU[ÍI]ZO|INSS|PADRONIZADO/i.test(linha)) continue;   // rol do juízo/INSS, não das partes
+    if(/M[ÉE]DIC[AO]/i.test(linha)) continue;                // perícia médica é do outro perito
+    // página de documento de OUTRO processo embutido nos autos (nº CNJ diferente por perto)
+    const antes=t.slice(Math.max(0,li-4000), li);
+    const outrosAntes=antes.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g)||[];
+    if(cnjProc && outrosAntes.some(n=>n!==cnjProc)) continue;
+    let ch=t.slice(lf, Math.min(lf+9000, t.length));
+    const prox=ch.search(/\n[^\na-zà-üç]*QUESITOS/);          // próximo título de rol
+    if(prox>0) ch=ch.slice(0,prox);
     const itens=[...ch.matchAll(/(?:^|\n)\s*\d{1,2}\s*[).:\-–]\s+\S/g)];
-    if(itens.length<2) return;                       // menção solta, não é rol
+    if(itens.length<2 || itens[0].index>500) continue;        // rol de verdade numera logo abaixo
     const ult=itens[itens.length-1].index;
-    const fimItem=ch.indexOf("\n", ult+1);            // fim da 1ª linha do último item
+    const fimItem=ch.indexOf("\n", ult+1);                    // fim da 1ª linha do último item
     if(fimItem>0){
       const resto=ch.slice(fimItem);
       // próxima linha toda em maiúsculas (e que não é item numerado) = título de outra peça
       const mCap=resto.match(/\n(?!\s*\d{1,2}\s*[).:\-–])[^\na-zà-üç]*[A-ZÀ-Ü]{4,}[^\na-zà-üç]*\n/);
       if(mCap) ch=ch.slice(0, fimItem+mCap.index);
     }
+    const cnjsBloco=ch.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g)||[];
+    if(cnjsBloco.some(n=>n!==cnjProc)) continue;              // bloco com margem de outro processo
     let parte=null;
-    if(/RECLAMANTE|AUTOR/i.test(c[0])) parte="reclamante";
-    else if(/RECLAMADA|R[ÉE]U|CONTESTA/i.test(c[0])) parte="reclamada";
-    blocos.push({parte, texto:(c[0].trim()+"\n"+ch.trim())});
-  });
+    // 1º critério: advogado que assinou o documento (mapa da capa do PJe)
+    const ass=[...ch.matchAll(/assinado eletronicamente por ([^,\n]{3,60}?),/gi)].map(x=>x[1].trim().toUpperCase());
+    if(advs && ass.length){
+      const bate=lista=>ass.some(n=>lista.some(a=>n.includes(a)||a.includes(n)));
+      if(bate(advs.reclamante)) parte="reclamante";
+      else if(bate(advs.reclamada)) parte="reclamada";
+    }
+    // 2º: a autoria dita no próprio título; 3º (fallback lá embaixo): ordem no processo
+    if(!parte){
+      if(/RECLAMANTE|AUTOR/i.test(linha)) parte="reclamante";
+      else if(/RECLAMADA|R[ÉE]U|CONTESTA/i.test(linha)) parte="reclamada";
+    }
+    blocos.push({parte, texto:(linha+"\n"+ch.trim())});
+  }
   if(!blocos.length) return;
   // sem autoria no cabeçalho: 1º rol do processo = petição inicial (reclamante); demais = reclamada
   blocos.forEach((b,i)=>{ if(!b.parte) b.parte = i===0 ? "reclamante" : "reclamada"; });
@@ -936,7 +974,7 @@ function exportar(){
   const registro = {meta:{arquivo_docx:null,categoria:cat,
       metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.1-2026-08-17"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.2-2026-08-17"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? {nome:ANEXO.nome, tamanho_bytes:ANEXO.tamanho, tipo:ANEXO.tipo,
       paginas:ANEXO.paginas, extraido_em:ANEXO.extraido_em, truncado:ANEXO.truncado,
