@@ -33,6 +33,7 @@
   .dica{font-size:.75rem;color:#666;margin-top:.15rem}
   .valida{font-size:.8rem;margin-top:.2rem}
   .valida.ok{color:var(--ok)} .valida.erro{color:var(--erro)} .valida.aviso{color:var(--aviso)}
+  .autofill{background:#fff8dc;border-color:#c9a227}
   .item-nr{border:1px solid var(--borda);border-radius:6px;padding:.6rem;margin:.5rem 0;background:#fafaf8}
   .item-nr h4{margin:.1rem 0 .3rem;font-size:.88rem}
   .row-dyn{border:1px dashed var(--borda);border-radius:6px;padding:.5rem;margin:.4rem 0;background:#fcfcfa;position:relative}
@@ -63,7 +64,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v4 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v5 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -103,6 +104,14 @@
 </div></details>
 
 <details open id="sec-processo"><summary>2. Processo <span class="falta"></span></summary><div class="corpo">
+  <label>Arquivo do processo (PDF ou Word) — preenche o básico sozinho</label>
+  <input type="file" id="anexoInput" accept=".pdf,.docx,.doc" onchange="anexarProcesso(event)">
+  <div class="valida" id="v_anexo"></div>
+  <div class="dica">Precisa de internet na hora de anexar. Lê PDF com texto (PJe) e .docx; PDF
+  escaneado e .doc antigo ficam só registrados — nesses casos, mande o arquivo junto com o
+  JSON exportado que a extração é feita na montagem do laudo. Campo já preenchido nunca é
+  sobrescrito; o que for preenchido pelo anexo fica <b>amarelo</b> até você mexer nele —
+  confira um a um. <a href="#" onclick="removerAnexo();return false">Remover anexo</a></div>
   <label>Número do processo (CNJ) <b class="req">*</b></label>
   <input type="text" id="processo_numero_cnj" inputmode="numeric" placeholder="0000000-00.0000.0.00.0000" autocomplete="off">
   <div class="valida" id="v_cnj"></div>
@@ -489,6 +498,124 @@ function montaNR(){
   });
 }
 
+/* ========================= anexo do processo ============================= */
+/* Preenchimento híbrido: o formulário faz o básico (CNJ, vara, partes, datas)
+   quando o PDF tem camada de texto; o texto extraído segue no JSON exportado
+   para o Claude revalidar e completar tudo na montagem do laudo.             */
+let ANEXO=null;                          // {nome,tamanho,tipo,paginas,extraido_em,truncado,texto}
+let AUTO=new Set(), AUTO_DER=new Set();  // ids preenchidos pelo anexo / derivados do CNJ
+const ANEXO_CAP=600000;                  // limite de caracteres p/ caber no localStorage
+function setAnexoMsg(txt,cls){ const fb=document.getElementById("v_anexo"); fb.textContent=txt; fb.className="valida "+(cls||""); }
+function scriptCDN(url){ return new Promise((res,rej)=>{
+  if(document.querySelector(`script[src="${url}"]`)) return res();
+  const s=document.createElement("script"); s.src=url; s.onload=res;
+  s.onerror=()=>rej(new Error("sem internet ou CDN bloqueado")); document.head.appendChild(s); }); }
+async function textoPDF(buf){
+  await scriptCDN("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let t="";
+  for(let p=1;p<=pdf.numPages && t.length<=ANEXO_CAP;p++){
+    setAnexoMsg(`lendo página ${p}/${pdf.numPages}…`,"aviso");
+    const tc=await (await pdf.getPage(p)).getTextContent();
+    let y=null;                        // quebra de linha por posição vertical / hasEOL
+    tc.items.forEach(i=>{
+      const yi=i.transform?i.transform[5]:null;
+      if(y!==null && yi!==null && Math.abs(yi-y)>2) t+="\n";
+      t+=i.str+(i.hasEOL?"\n":" ");
+      if(yi!==null) y=yi;
+    });
+    t+="\n\n";
+  }
+  return {texto:t, paginas:pdf.numPages};
+}
+async function textoDOCX(buf){
+  await scriptCDN("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+  const zip=await JSZip.loadAsync(buf);
+  const xml=await zip.file("word/document.xml").async("string");
+  const t=xml.replace(/<w:p[ \/>]/g,"\n<w:p ").replace(/<[^>]+>/g," ")
+    .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"')
+    .replace(/&#(\d+);/g,(m,n)=>String.fromCharCode(n)).replace(/[ \t]+/g," ");
+  return {texto:t, paginas:null};
+}
+async function anexarProcesso(ev){
+  const f=ev.target.files[0]; ev.target.value=""; if(!f) return;
+  const ext=(f.name.split(".").pop()||"").toLowerCase();
+  ANEXO={nome:f.name,tamanho:f.size,tipo:ext,paginas:null,
+    extraido_em:new Date().toISOString().slice(0,10),truncado:false,texto:""};
+  if(ext==="doc"){
+    setAnexoMsg(`⚠ ${f.name}: .doc antigo — não leio aqui. Anexo registrado; mande o arquivo junto com o JSON que a extração é feita na montagem do laudo.`,"aviso");
+    salvar(); return;
+  }
+  try{
+    const buf=await f.arrayBuffer();
+    const r = ext==="pdf" ? await textoPDF(buf) : await textoDOCX(buf);
+    ANEXO.paginas=r.paginas;
+    let t=r.texto||"";
+    if(t.length>ANEXO_CAP){ t=t.slice(0,ANEXO_CAP); ANEXO.truncado=true; }
+    ANEXO.texto=t;
+    if(t.replace(/\s/g,"").length<200){
+      ANEXO.texto="";
+      setAnexoMsg(`⚠ ${f.name}: sem camada de texto (escaneado?). Nada extraído — anexo registrado; mande o arquivo junto com o JSON que a extração é feita por OCR na montagem do laudo.`,"aviso");
+      salvar(); return;
+    }
+    const feitos=autoPreencher(t);
+    setAnexoMsg(`✓ ${f.name} lido${ANEXO.paginas?` (${ANEXO.paginas} pág.)`:""}${ANEXO.truncado?" · texto truncado no limite":""} — `+
+      (feitos.length?`preenchi: ${feitos.join(", ")}. Confira os campos em amarelo.`
+                    :"nenhum campo vazio para preencher (campo já preenchido não é tocado)."),"ok");
+  }catch(e){
+    ANEXO.texto="";
+    setAnexoMsg(`⚠ não consegui ler (${e.message}). Anexo registrado só por nome; mande o arquivo junto com o JSON.`,"erro");
+  }
+  salvar();
+}
+function limpaNome(s){ return (s||"").replace(/\s+/g," ")
+  .replace(/[,;.]?\s*(?:CPF|CNPJ|RG|CTPS)\b[\s\S]*$/i,"").replace(/\s*[-–—(]\s*$/,"").trim(); }
+function dataISO(br){ const m=String(br).match(/(\d{2})\/(\d{2})\/(\d{4})/); return m?`${m[3]}-${m[2]}-${m[1]}`:""; }
+function poe(id,valor,rotulo,feitos){
+  const el=document.getElementById(id);
+  if(!el||!valor||el.value) return;
+  el.value=valor; AUTO.add(id); el.classList.add("autofill"); feitos.push(rotulo);
+}
+function autoPreencher(t){
+  const feitos=[];
+  let m=t.match(/\d{7}\s*[-–]\s*\d{2}\s*\.\s*\d{4}\s*\.\s*5\s*\.\s*\d{2}\s*\.\s*\d{4}/);
+  if(m) poe("processo_numero_cnj", m[0].replace(/\s+/g,""), "nº CNJ", feitos);
+  m=t.match(/(\d{1,2})\s*[ªa°.]?\s*VARA DO TRABALHO DE\s+([A-Za-zÀ-ü' ]{3,40}?)(?=\s*[-–,;.\n(]|\s{3,}|$)/i);
+  if(m){ poe("processo_vara", `${m[1]}ª Vara do Trabalho de ${limpaNome(m[2])}`, "vara", feitos);
+         poe("processo_comarca_uf", limpaNome(m[2]), "comarca", feitos); }
+  m=t.match(/RECLAMANTES?\s*[:\-]\s*([^\n]{3,90})/i) || t.match(/\bAUTORA?\s*[:\-]\s*([^\n]{3,90})/i);
+  if(m) poe("processo_reclamante", limpaNome(m[1]), "reclamante", feitos);
+  const recs=[...t.matchAll(/RECLAMAD[AO]S?\s*[:\-]\s*([^\n]{3,110})/gi)]
+    .map(x=>limpaNome(x[1])).filter((v,i,a)=>v&&a.indexOf(v)===i);
+  if(recs[0]) poe("processo_reclamada", recs[0], "reclamada", feitos);
+  if(recs[1]){ poe("processo_reclamada2", recs[1], "2ª reclamada", feitos);
+    const nr=document.getElementById("meta_n_reclamadas");
+    if(nr.value!=="2"){ nr.value="2"; mudaReclamadas(); } }
+  m=t.match(/admitid[oa]\s+(?:em|na data de)\s+(\d{2}\/\d{2}\/\d{4})/i);
+  if(m) poe("vinculo_admissao", dataISO(m[1]), "admissão", feitos);
+  m=t.match(/(?:demitid[oa]|dispensad[oa]|desligad[oa])\s+(?:em|na data de)\s+(\d{2}\/\d{2}\/\d{4})/i);
+  if(m) poe("vinculo_demissao", dataISO(m[1]), "demissão", feitos);
+  m=t.match(/fun[çc][ãa]o\s+de\s+([A-Za-zÀ-ü][^\n,.;()]{2,60})/i);
+  if(m) poe("vinculo_funcao", limpaNome(m[1]), "função", feitos);
+  if(AUTO.has("processo_numero_cnj")){
+    const antesVara=document.getElementById("processo_vara").value;
+    validaCNJ();
+    if(!antesVara && document.getElementById("processo_vara").value){
+      ["processo_vara","processo_comarca_uf"].forEach(id=>{
+        AUTO_DER.add(id); document.getElementById(id).classList.add("autofill"); });
+      feitos.push("vara/comarca (derivadas do nº CNJ — confirmar com o perito)");
+    }
+  }
+  checaDatas();
+  return feitos;
+}
+function removerAnexo(){
+  ANEXO=null; AUTO.clear(); AUTO_DER.clear();
+  document.querySelectorAll(".autofill").forEach(e=>e.classList.remove("autofill"));
+  setAnexoMsg(""); salvar();
+}
+
 /* ================================== CNJ ================================== */
 function mod97(s){ let r=0; for(let i=0;i<s.length;i++){ r=(r*10+(s.charCodeAt(i)-48))%97; } return r; }
 function validaCNJ(){
@@ -554,6 +681,7 @@ function coletar(){
       dados.listas[tipo].push(o);
     });
   }
+  dados.anexo = ANEXO ? Object.assign({}, ANEXO, {auto:[...AUTO], auto_der:[...AUTO_DER]}) : null;
   return dados;
 }
 function aplicar(dados){
@@ -565,6 +693,14 @@ function aplicar(dados){
     document.getElementById("lst_"+tipo).innerHTML="";
     (dados.listas && dados.listas[tipo] || []).forEach(v=>addRow(tipo,v));
   }
+  if(dados.anexo){
+    ANEXO=Object.assign({},dados.anexo); delete ANEXO.auto; delete ANEXO.auto_der;
+    AUTO=new Set(dados.anexo.auto||[]); AUTO_DER=new Set(dados.anexo.auto_der||[]);
+  } else { ANEXO=null; AUTO=new Set(); AUTO_DER=new Set(); }
+  document.querySelectorAll(".autofill").forEach(e=>e.classList.remove("autofill"));
+  [...AUTO,...AUTO_DER].forEach(id=>{ const el=document.getElementById(id); if(el&&el.value) el.classList.add("autofill"); });
+  if(ANEXO) setAnexoMsg(`anexo: ${ANEXO.nome}${ANEXO.paginas?` (${ANEXO.paginas} pág.)`:""}${ANEXO.texto?"":" — sem texto extraído"}`,"ok");
+  else setAnexoMsg("");
   validaCNJ(); mudaInstrumento(); mudaConclusao(); mudaReclamadas(); checaDatas(); checaHoras(); pendencias();
   document.querySelectorAll('#lst_ruido .row-dyn').forEach(r=>{
     const i=r.querySelector('[data-k="nivel"]'), f=r.querySelector(".valida");
@@ -740,17 +876,29 @@ function exportar(){
   });
   if(g("observacoes_texto")) campo(c,"observacoes.texto",g("observacoes_texto"));
 
+  // campos vindos do anexo do processo (não conferidos) e derivados do CNJ
+  c.forEach(x=>{ if(!x.valor) return; const id=x.campo.replace(/\./g,"_");
+    if(AUTO.has(id)){ x.origem="documento:processo-anexo"; x.status="aguardando_perito"; }
+    else if(AUTO_DER.has(id)){ x.origem="derivado:cnj-origem"; x.status="aguardando_perito"; } });
+
   // ditado_txt — tudo em texto rotulado, insumo do verificar_fidelidade
   const linhas = [`DITADO — vistoria de ${g("vistoria_data")||"[data]"} — categoria: ${cat}`,""];
   c.forEach(x=>{ if(x.valor) linhas.push(`${x.campo}: ${x.valor}`); });
 
   // um arquivo só: exportação dupla é bloqueada no Safari do iPhone
   // backup_formulario = estado bruto do formulário, para reimportar em qualquer aparelho
+  // anexo: texto extraído vai uma vez só (fora do backup, para não duplicar)
+  const dBackup = Object.assign({}, d,
+    {anexo: d.anexo ? Object.assign({}, d.anexo, {texto:""}) : null});
   const registro = {meta:{arquivo_docx:null,categoria:cat,
       metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v4-2026-08-16"},
-    campos:c, ditado_txt:linhas.join("\n"), backup_formulario:d};
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5-2026-08-17"},
+    campos:c, ditado_txt:linhas.join("\n"),
+    anexo_processo: ANEXO ? {nome:ANEXO.nome, tamanho_bytes:ANEXO.tamanho, tipo:ANEXO.tipo,
+      paginas:ANEXO.paginas, extraido_em:ANEXO.extraido_em, truncado:ANEXO.truncado,
+      texto_extraido:ANEXO.texto||null} : null,
+    backup_formulario:dBackup};
 
   try{ localStorage.setItem(LS+"_export", String(Date.now())); }catch(e){}
   const nome = ((g("processo_reclamante")||"vistoria").split(" ")[0]+"_"+(g("vistoria_data")||hoje))+"_vistoria.json";
@@ -831,6 +979,7 @@ function importar(ev){
       else if(Array.isArray(j.campos)){ aplicar(registroParaBackup(j));
         alert("Registro antigo importado pelo mapa reverso — confira os campos antes de seguir."); }
       else alert("Formato não reconhecido. Importe um *_vistoria.json exportado por este formulário.");
+      if(j.anexo_processo && ANEXO && !ANEXO.texto) ANEXO.texto=j.anexo_processo.texto_extraido||"";
       salvar();
     }catch(e){ alert("Não consegui ler o arquivo: "+e.message); } };
   r.readAsText(f);
@@ -843,8 +992,15 @@ montaNR();
 document.getElementById("processo_numero_cnj").addEventListener("blur", ()=>{validaCNJ();salvar();});
 ["vinculo_admissao","vinculo_demissao"].forEach(id=>document.getElementById(id).addEventListener("change", checaDatas));
 ["vistoria_hora_inicio","vistoria_hora_termino"].forEach(id=>document.getElementById(id).addEventListener("change", checaHoras));
-document.getElementById("form").addEventListener("input", salvar);
-document.getElementById("form").addEventListener("change", salvar);
+function aoEditar(ev){
+  const id=ev.target && ev.target.id;
+  if(id && (AUTO.has(id)||AUTO_DER.has(id))){   // mexeu no campo = conferiu
+    AUTO.delete(id); AUTO_DER.delete(id); ev.target.classList.remove("autofill");
+  }
+  salvar();
+}
+document.getElementById("form").addEventListener("input", aoEditar);
+document.getElementById("form").addEventListener("change", aoEditar);
 try{ const s=localStorage.getItem(LS); if(s) aplicar(JSON.parse(s)); }catch(e){}
 if(!document.querySelector("#lst_cicerones .row-dyn")) addRow("cicerones");
 if(!document.querySelector("#lst_epis .row-dyn")) addRow("epis");
