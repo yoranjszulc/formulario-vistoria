@@ -64,7 +64,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v5 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v5.1 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -104,14 +104,16 @@
 </div></details>
 
 <details open id="sec-processo"><summary>2. Processo <span class="falta"></span></summary><div class="corpo">
-  <label>Arquivo do processo (PDF ou Word) — preenche o básico sozinho</label>
+  <label>Arquivo do processo (PDF ou Word) — preenche o básico, os quesitos e os honorários</label>
   <input type="file" id="anexoInput" accept=".pdf,.docx,.doc" onchange="anexarProcesso(event)">
   <div class="valida" id="v_anexo"></div>
   <div class="dica">Precisa de internet na hora de anexar. Lê PDF com texto (PJe) e .docx; PDF
   escaneado e .doc antigo ficam só registrados — nesses casos, mande o arquivo junto com o
   JSON exportado que a extração é feita na montagem do laudo. Campo já preenchido nunca é
   sobrescrito; o que for preenchido pelo anexo fica <b>amarelo</b> até você mexer nele —
-  confira um a um. <a href="#" onclick="removerAnexo();return false">Remover anexo</a></div>
+  confira um a um. Os rols de quesitos achados no texto caem nas caixas de colagem da
+  seção 14 — <b>confira a autoria</b> (reclamante × reclamada) antes de exportar.
+  <a href="#" onclick="removerAnexo();return false">Remover anexo</a></div>
   <label>Número do processo (CNJ) <b class="req">*</b></label>
   <input type="text" id="processo_numero_cnj" inputmode="numeric" placeholder="0000000-00.0000.0.00.0000" autocomplete="off">
   <div class="valida" id="v_cnj"></div>
@@ -598,6 +600,9 @@ function autoPreencher(t){
   if(m) poe("vinculo_demissao", dataISO(m[1]), "demissão", feitos);
   m=t.match(/fun[çc][ãa]o\s+de\s+([A-Za-zÀ-ü][^\n,.;()]{2,60})/i);
   if(m) poe("vinculo_funcao", limpaNome(m[1]), "função", feitos);
+  m=t.match(/honor[áa]rios?(?:\s+periciais)?[^\n]{0,60}?R\$\s*([\d.]+(?:,\d{2})?)/i);
+  if(m) poe("processo_honorarios", m[1], "honorários", feitos);
+  extrairQuesitos(t, feitos);
   if(AUTO.has("processo_numero_cnj")){
     const antesVara=document.getElementById("processo_vara").value;
     validaCNJ();
@@ -609,6 +614,41 @@ function autoPreencher(t){
   }
   checaDatas();
   return feitos;
+}
+function extrairQuesitos(t, feitos){
+  // rols de quesitos do texto do processo → caixas de colagem da seção 14
+  const cabs=[...t.matchAll(/(?:ROL\s+D[EO]S?\s+)?QUESITOS?\b[^\n]{0,80}/gi)];
+  const blocos=[];
+  cabs.forEach((c,ci)=>{
+    const ini=c.index+c[0].length;
+    const fim=Math.min(ci+1<cabs.length?cabs[ci+1].index:t.length, ini+9000);
+    let ch=t.slice(ini,fim);
+    const itens=[...ch.matchAll(/(?:^|\n)\s*\d{1,2}\s*[).:\-–]\s+\S/g)];
+    if(itens.length<2) return;                       // menção solta, não é rol
+    const ult=itens[itens.length-1].index;
+    const fimItem=ch.indexOf("\n", ult+1);            // fim da 1ª linha do último item
+    if(fimItem>0){
+      const resto=ch.slice(fimItem);
+      // próxima linha toda em maiúsculas (e que não é item numerado) = título de outra peça
+      const mCap=resto.match(/\n(?!\s*\d{1,2}\s*[).:\-–])[^\na-zà-üç]*[A-ZÀ-Ü]{4,}[^\na-zà-üç]*\n/);
+      if(mCap) ch=ch.slice(0, fimItem+mCap.index);
+    }
+    let parte=null;
+    if(/RECLAMANTE|AUTOR/i.test(c[0])) parte="reclamante";
+    else if(/RECLAMADA|R[ÉE]U|CONTESTA/i.test(c[0])) parte="reclamada";
+    blocos.push({parte, texto:(c[0].trim()+"\n"+ch.trim())});
+  });
+  if(!blocos.length) return;
+  // sem autoria no cabeçalho: 1º rol do processo = petição inicial (reclamante); demais = reclamada
+  blocos.forEach((b,i)=>{ if(!b.parte) b.parte = i===0 ? "reclamante" : "reclamada"; });
+  for(const parte of ["reclamante","reclamada"]){
+    const el=document.getElementById("quesitos_colados_"+parte);
+    const meus=blocos.filter(b=>b.parte===parte);
+    if(!el||el.value||!meus.length) continue;
+    el.value=meus.map(b=>b.texto).join("\n\n----------\n\n");
+    AUTO.add("quesitos_colados_"+parte); el.classList.add("autofill");
+    feitos.push(`quesitos (${parte==="reclamante"?"do reclamante":"da reclamada"}, ${meus.length} bloco${meus.length>1?"s":""} — conferir autoria)`);
+  }
 }
 function removerAnexo(){
   ANEXO=null; AUTO.clear(); AUTO_DER.clear();
@@ -877,7 +917,10 @@ function exportar(){
   if(g("observacoes_texto")) campo(c,"observacoes.texto",g("observacoes_texto"));
 
   // campos vindos do anexo do processo (não conferidos) e derivados do CNJ
-  c.forEach(x=>{ if(!x.valor) return; const id=x.campo.replace(/\./g,"_");
+  c.forEach(x=>{ if(!x.valor) return;
+    let id=x.campo.replace(/\./g,"_");
+    const mq=x.campo.match(/^quesitos\.(reclamante|reclamada2?)\.texto_colado$/);
+    if(mq) id="quesitos_colados_"+mq[1];
     if(AUTO.has(id)){ x.origem="documento:processo-anexo"; x.status="aguardando_perito"; }
     else if(AUTO_DER.has(id)){ x.origem="derivado:cnj-origem"; x.status="aguardando_perito"; } });
 
@@ -893,7 +936,7 @@ function exportar(){
   const registro = {meta:{arquivo_docx:null,categoria:cat,
       metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5-2026-08-17"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.1-2026-08-17"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? {nome:ANEXO.nome, tamanho_bytes:ANEXO.tamanho, tipo:ANEXO.tipo,
       paginas:ANEXO.paginas, extraido_em:ANEXO.extraido_em, truncado:ANEXO.truncado,
