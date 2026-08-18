@@ -64,7 +64,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v5.3 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v5.4 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -282,20 +282,17 @@
 </div></details>
 
 <details id="sec-quesitos"><summary>14. Quesitos</summary><div class="corpo">
-  <div class="dica">O caminho fácil: <b>cole o texto corrido dos quesitos</b> (copiado do PJe/PDF) na caixa da parte — a segmentação em quesito por quesito é feita depois, no escritório. As linhas manuais continuam valendo: pergunta literal dos autos, número original (mesmo se saltar), resposta em branco = [AGUARDANDO DEFINIÇÃO DO PERITO].</div>
+  <div class="dica">Os quesitos vêm do anexo do processo (seção 1) e caem nas caixas abaixo. <b>Confira a autoria</b> — reclamante × reclamada — antes de exportar: os autos costumam trazer peças de ações conexas e quesitos de perícia médica, que são de outro perito e não entram neste laudo. Sem anexo, cole o texto corrido do PJe. A segmentação em quesito por quesito é feita depois, no escritório.</div>
   <label>Do reclamante — colagem do texto corrido</label>
   <textarea id="quesitos_colados_reclamante" placeholder="cole aqui os quesitos como vieram dos autos"></textarea>
-  <label>Do reclamante — um a um</label><div id="lst_quesitos_reclamante"></div>
-  <button class="add" type="button" onclick="addRow('quesitos_reclamante')">+ quesito do reclamante</button>
+  <div id="lst_quesitos_reclamante"></div>
   <label style="margin-top:.8rem">Da reclamada — colagem do texto corrido</label>
   <textarea id="quesitos_colados_reclamada" placeholder="cole aqui os quesitos como vieram dos autos"></textarea>
-  <label>Da reclamada — um a um</label><div id="lst_quesitos_reclamada"></div>
-  <button class="add" type="button" onclick="addRow('quesitos_reclamada')">+ quesito da reclamada</button>
+  <div id="lst_quesitos_reclamada"></div>
   <div id="grp_quesitos_reclamada2" class="oculto">
     <label style="margin-top:.8rem">Da 2ª reclamada — colagem do texto corrido</label>
     <textarea id="quesitos_colados_reclamada2" placeholder="cole aqui os quesitos como vieram dos autos"></textarea>
-    <label>Da 2ª reclamada — um a um</label><div id="lst_quesitos_reclamada2"></div>
-    <button class="add" type="button" onclick="addRow('quesitos_reclamada2')">+ quesito da 2ª reclamada</button>
+    <div id="lst_quesitos_reclamada2"></div>
   </div>
 </div></details>
 
@@ -308,7 +305,8 @@
 
 </main>
 <div class="barra">
-  <button id="btExportar" type="button" onclick="exportar()">Exportar (registro + ditado)</button>
+  <button id="btExportar" type="button" onclick="exportar()">Exportar</button>
+  <button id="btPasta" class="sec oculto" type="button" onclick="escolherPasta()">Escolher pasta…</button>
   <button class="sec" type="button" onclick="document.getElementById('importFile').click()">Importar</button>
   <input type="file" id="importFile" class="oculto" accept=".json" onchange="importar(event)">
   <button class="sec" type="button" onclick="limpar()">Limpar esta vistoria</button>
@@ -512,6 +510,7 @@ function montaNR(){
    quando o PDF tem camada de texto; o texto extraído segue no JSON exportado
    para o Claude revalidar e completar tudo na montagem do laudo.             */
 let ANEXO=null;                          // {nome,tamanho,tipo,paginas,extraido_em,truncado,texto}
+let ANEXO_FILE=null;                     // o arquivo em si, para gravar junto do JSON (não persiste)
 let AUTO=new Set(), AUTO_DER=new Set();  // ids preenchidos pelo anexo / derivados do CNJ
 const ANEXO_CAP=600000;                  // limite de caracteres p/ caber no localStorage
 function setAnexoMsg(txt,cls){ const fb=document.getElementById("v_anexo"); fb.textContent=txt; fb.className="valida "+(cls||""); }
@@ -549,6 +548,7 @@ async function textoDOCX(buf){
 }
 async function anexarProcesso(ev){
   const f=ev.target.files[0]; ev.target.value=""; if(!f) return;
+  ANEXO_FILE=f;
   const ext=(f.name.split(".").pop()||"").toLowerCase();
   ANEXO={nome:f.name,tamanho:f.size,tipo:ext,paginas:null,
     extraido_em:new Date().toISOString().slice(0,10),truncado:false,texto:""};
@@ -572,7 +572,8 @@ async function anexarProcesso(ev){
     const feitos=autoPreencher(completo);
     setAnexoMsg(`✓ ${f.name} lido${ANEXO.paginas?` (${ANEXO.paginas} pág.)`:""}${ANEXO.truncado?" · texto truncado no limite":""} — `+
       (feitos.length?`preenchi: ${feitos.join(", ")}. Confira os campos em amarelo.`
-                    :"nenhum campo vazio para preencher (campo já preenchido não é tocado)."),"ok");
+                    :"nenhum campo vazio para preencher (campo já preenchido não é tocado).")+
+      " ⚠ Antes de sair para a vistoria, clique em Exportar — é por esse arquivo que o celular carrega tudo pelo Importar.","ok");
   }catch(e){
     ANEXO.texto="";
     setAnexoMsg(`⚠ não consegui ler (${e.message}). Anexo registrado só por nome; mande o arquivo junto com o JSON.`,"erro");
@@ -707,7 +708,7 @@ function extrairQuesitos(t, feitos, advs){
   }
 }
 function removerAnexo(){
-  ANEXO=null; AUTO.clear(); AUTO_DER.clear();
+  ANEXO=null; ANEXO_FILE=null; AUTO.clear(); AUTO_DER.clear();
   document.querySelectorAll(".autofill").forEach(e=>e.classList.remove("autofill"));
   setAnexoMsg(""); salvar();
 }
@@ -786,13 +787,15 @@ function aplicar(dados){
     if(el.type==="checkbox") el.checked=!!dados.campos[id]; else el.value=dados.campos[id];
   }
   for(const tipo in ROWS){
-    document.getElementById("lst_"+tipo).innerHTML="";
+    const cx=document.getElementById("lst_"+tipo); if(!cx) continue;
+    cx.innerHTML="";
     (dados.listas && dados.listas[tipo] || []).forEach(v=>addRow(tipo,v));
   }
   if(dados.anexo){
     ANEXO=Object.assign({},dados.anexo); delete ANEXO.auto; delete ANEXO.auto_der;
+    ANEXO_FILE=null;                     // File não sobrevive ao localStorage
     AUTO=new Set(dados.anexo.auto||[]); AUTO_DER=new Set(dados.anexo.auto_der||[]);
-  } else { ANEXO=null; AUTO=new Set(); AUTO_DER=new Set(); }
+  } else { ANEXO=null; ANEXO_FILE=null; AUTO=new Set(); AUTO_DER=new Set(); }
   document.querySelectorAll(".autofill").forEach(e=>e.classList.remove("autofill"));
   [...AUTO,...AUTO_DER].forEach(id=>{ const el=document.getElementById(id); if(el&&el.value) el.classList.add("autofill"); });
   if(ANEXO) setAnexoMsg(`anexo: ${ANEXO.nome}${ANEXO.paginas?` (${ANEXO.paginas} pág.)`:""}${ANEXO.texto?"":" — sem texto extraído"}`,"ok");
@@ -878,7 +881,78 @@ function pendencias(){
   document.querySelector("#pendencias summary").textContent = p.length?`⚠ Pendências antes de sair do local (${p.length})`:"✓ Sem pendências";
 }
 
+/* ============================= pasta de destino ========================== */
+/* Escolhida uma vez, guardada no IndexedDB: daí em diante o Exportar grava    */
+/* direto lá, sem diálogo. Só Chrome/Edge no computador — sem suporte, o botão */
+/* some e o Exportar volta ao caminho antigo (compartilhar → baixar → copiar). */
+const FS_OK = typeof window.showDirectoryPicker === "function";
+let DIR = null;
+function idbAbrir(){ return new Promise((res,rej)=>{ const r=indexedDB.open("vistoria_fs",1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("h");
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function idbOp(modo, fn){ return idbAbrir().then(db=>new Promise((res,rej)=>{
+  const req=fn(db.transaction("h",modo).objectStore("h"));
+  req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); })); }
+const idbGet = k => idbOp("readonly",  s=>s.get(k));
+const idbSet = (k,v) => idbOp("readwrite", s=>s.put(v,k));
+const idbDel = k => idbOp("readwrite", s=>s.delete(k));
+
+async function permPasta(){
+  if(!DIR) return false;
+  const o={mode:"readwrite"};
+  try{
+    if(await DIR.queryPermission(o)==="granted") return true;
+    return await DIR.requestPermission(o)==="granted";   // 1 clique ao reabrir a página
+  }catch(e){ return false; }
+}
+function pintaPasta(){
+  const b=document.getElementById("btPasta"); if(!b) return;
+  b.classList.toggle("oculto", !FS_OK);
+  b.textContent = DIR ? `Pasta: ${DIR.name}` : "Escolher pasta…";
+  b.title = DIR ? `O Exportar grava em ${DIR.name}. Clique para trocar.`
+                : "Escolha a pasta onde o Exportar vai gravar direto";
+}
+async function escolherPasta(){
+  if(!FS_OK){ alert("Este navegador não grava direto numa pasta.\n\nUse o Chrome ou o Edge no computador — ou continue exportando por download."); return; }
+  try{
+    const h = await window.showDirectoryPicker({mode:"readwrite", id:"laudos_entrada"});
+    DIR = h; await idbSet("pasta", h); pintaPasta();
+    alert(`Pronto. O Exportar passa a gravar em: ${h.name}`);
+  }catch(e){ /* cancelou o seletor */ }
+}
+async function carregarPasta(){
+  if(FS_OK){ try{ const h=await idbGet("pasta"); if(h) DIR=h; }catch(e){} }
+  pintaPasta();
+}
+async function gravarNaPasta(nome, conteudo){
+  if(!DIR || !(await permPasta())) return null;
+  let existia=false;
+  try{ await DIR.getFileHandle(nome); existia=true; }catch(e){}
+  const w = await (await DIR.getFileHandle(nome,{create:true})).createWritable();
+  await w.write(new Blob([conteudo],{type:"application/json;charset=utf-8"}));
+  await w.close();
+  let anexo=null;                       // o arquivo dos autos vai junto, mesmo prefixo
+  if(ANEXO_FILE && ANEXO){
+    const alvo = nome.replace(/_vistoria\.json$/,"") + "_processo." + (ANEXO.tipo||"pdf");
+    try{
+      const wa = await (await DIR.getFileHandle(alvo,{create:true})).createWritable();
+      await wa.write(ANEXO_FILE); await wa.close(); anexo=alvo;
+    }catch(e){}
+  }
+  return {existia, anexo};
+}
+
 /* ================================ exportar =============================== */
+/* Nome determinístico: CNJ (ou 1º nome do reclamante) + data da vistoria.     */
+/* Reexportar a mesma vistoria no mesmo dia substitui o arquivo — é correção,  */
+/* não versão nova. Por isso também não aparece o "(1)" do navegador.          */
+function nomeArquivo(g, hoje){
+  const cnj = (g("processo_numero_cnj")||"").replace(/\D/g,"");
+  const base = cnj.length>=15 ? cnj
+    : ((g("processo_reclamante")||"").split(" ")[0]||"")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9]/g,"") || "vistoria";
+  return `${base}_${g("vistoria_data")||hoje}_vistoria.json`;
+}
 function campo(lista, caminho, valor, status){
   const v = (valor===undefined||valor===null)?"":String(valor).trim();
   lista.push({campo:caminho, valor: v||null, origem:"formulario", status: status || (v?"confirmado":"lacuna")});
@@ -995,7 +1069,7 @@ function exportar(){
   const registro = {meta:{arquivo_docx:null,categoria:cat,
       metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.3-2026-08-17"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.4-2026-08-17"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? {nome:ANEXO.nome, tamanho_bytes:ANEXO.tamanho, tipo:ANEXO.tipo,
       paginas:ANEXO.paginas, extraido_em:ANEXO.extraido_em, truncado:ANEXO.truncado,
@@ -1003,11 +1077,22 @@ function exportar(){
     backup_formulario:dBackup};
 
   try{ localStorage.setItem(LS+"_export", String(Date.now())); }catch(e){}
-  const nome = ((g("processo_reclamante")||"vistoria").split(" ")[0]+"_"+(g("vistoria_data")||hoje))+"_vistoria.json";
-  entregar(nome, JSON.stringify(registro,null,2));
+  entregar(nomeArquivo(g,hoje), JSON.stringify(registro,null,2));
 }
-function entregar(nome, conteudo){
-  // 1º compartilhar (iPhone: manda direto pro WhatsApp/e-mail) → 2º baixar → 3º copiar
+async function entregar(nome, conteudo){
+  // pasta escolhida → grava direto; senão compartilhar (iPhone) → baixar → copiar
+  if(DIR){
+    try{
+      const r = await gravarNaPasta(nome, conteudo);
+      if(r){
+        alert(`Gravado em ${DIR.name}:\n${nome}`
+          + (r.existia ? "\n(substituiu o arquivo anterior de mesmo nome)" : "")
+          + (r.anexo ? `\n${r.anexo} — arquivo do processo gravado junto` : "")
+          + (ANEXO && !ANEXO_FILE ? "\n\n⚠ o arquivo do processo não foi junto: a página foi recarregada desde o anexo. Reanexe antes de exportar se a montagem precisar do original." : ""));
+        return;
+      }
+    }catch(e){ alert("Não consegui gravar na pasta ("+e.message+"). Vou baixar o arquivo."); }
+  }
   try{
     const f = new File([conteudo], nome, {type:"application/json"});
     if(navigator.canShare && navigator.canShare({files:[f]})){
@@ -1023,7 +1108,7 @@ function baixarOuCopiar(nome, conteudo){
     a.href=URL.createObjectURL(new Blob([conteudo],{type:"application/json;charset=utf-8"}));
     a.download=nome; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-    alert("Arquivo exportado: "+nome+"\nMande por WhatsApp, e-mail ou pasta do OneDrive.\n\nSe o download não apareceu, use a tela de cópia que vai abrir.");
+    alert("Arquivo exportado: "+nome+"\nSalve no OneDrive, dentro da pasta Laudos — de lá ele chega ao desktop sozinho.\n\nSe o download não apareceu, use a tela de cópia que vai abrir.");
     setTimeout(()=>{ /* sem como detectar download bloqueado; oferecer cópia sob demanda */ },0);
   }catch(e){ modalCopia(nome, conteudo); }
 }
@@ -1108,6 +1193,7 @@ if(!document.querySelector("#lst_cicerones .row-dyn")) addRow("cicerones");
 if(!document.querySelector("#lst_epis .row-dyn")) addRow("epis");
 mudaReclamadas();
 pendencias();
+carregarPasta();
 </script>
 <script>
 if ("serviceWorker" in navigator && location.protocol === "https:")
