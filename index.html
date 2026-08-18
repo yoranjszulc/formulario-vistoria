@@ -282,7 +282,7 @@
 </div></details>
 
 <details id="sec-quesitos"><summary>14. Quesitos</summary><div class="corpo">
-  <div class="dica">Os quesitos vêm do anexo do processo (seção 1) e caem nas caixas abaixo. <b>Confira a autoria</b> — reclamante × reclamada — antes de exportar: os autos costumam trazer peças de ações conexas e quesitos de perícia médica, que são de outro perito e não entram neste laudo. Sem anexo, cole o texto corrido do PJe. A segmentação em quesito por quesito é feita depois, no escritório.</div>
+  <div class="dica">Os quesitos vêm do anexo do processo (seção 2) e caem nas caixas abaixo. <b>Confira a autoria</b> — reclamante × reclamada — antes de exportar: os autos costumam trazer peças de ações conexas e quesitos de perícia médica, que são de outro perito e não entram neste laudo. Sem anexo, cole o texto corrido do PJe. A segmentação em quesito por quesito é feita depois, no escritório.</div>
   <label>Do reclamante — colagem do texto corrido</label>
   <textarea id="quesitos_colados_reclamante" placeholder="cole aqui os quesitos como vieram dos autos"></textarea>
   <div id="lst_quesitos_reclamante"></div>
@@ -806,17 +806,19 @@ function aplicar(dados){
     if(i&&f) checaNivel(i,f);
   });
 }
-let tSalvar=null, salvarPendente=false;
+let tSalvar=null, salvarPendente=false, LIMPANDO=false;
 function flushSalvar(){
-  if(!salvarPendente) return;
+  if(LIMPANDO || !salvarPendente) return;
   clearTimeout(tSalvar); salvarPendente=false;
   try{ localStorage.setItem(LS, JSON.stringify(coletar()));
     localStorage.setItem(LS+"_edit", String(Date.now())); }catch(e){}
 }
 function salvar(){
+  if(LIMPANDO) return;                 // limpeza em curso: nada volta ao localStorage
   salvarPendente=true;
   clearTimeout(tSalvar);
   tSalvar=setTimeout(()=>{
+    if(LIMPANDO) return;
     salvarPendente=false;
     try{ localStorage.setItem(LS, JSON.stringify(coletar()));
       localStorage.setItem(LS+"_edit", String(Date.now()));
@@ -836,12 +838,17 @@ function limpar(){
   try{
     const exp=+(localStorage.getItem(LS+"_export")||0), ed=+(localStorage.getItem(LS+"_edit")||0);
     if(temDados() && ed>exp){
-      if(confirm("Há alterações que NUNCA foram exportadas.\n\nExportar antes de apagar?")){ exportar(); return; }
+      if(confirm("Há alterações que NUNCA foram exportadas.\n\nExportar agora? (esta opção NÃO apaga nada — para apagar, clique em Limpar de novo depois)")){ exportar(); return; }
       aviso="Apagar SEM exportar? O que não foi exportado se perde de vez.";
     }
   }catch(e){}
   if(!confirm(aviso)) return;
-  localStorage.removeItem(LS); localStorage.removeItem(LS+"_edit"); location.reload();
+  // trava o auto-salvamento: o debounce de salvar() dispararia DEPOIS do removeItem
+  // e regravaria tudo (inclusive o anexo) antes de o reload acontecer.
+  LIMPANDO=true; salvarPendente=false; clearTimeout(tSalvar);
+  ANEXO=null; ANEXO_FILE=null; AUTO.clear(); AUTO_DER.clear();
+  ["","_edit","_export"].forEach(s=>{ try{ localStorage.removeItem(LS+s); }catch(e){} });
+  location.reload();
 }
 
 /* =============================== pendências ============================== */
