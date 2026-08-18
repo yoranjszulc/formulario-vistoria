@@ -64,7 +64,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v5.5 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v5.6 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -589,6 +589,18 @@ function sq(s){ return (s||"").replace(/\s+/g," ").trim(); }
 // camada de texto de PDF quebra dígitos ("1 8 / 0 8 /202 6", "86. 21 - 6"): junta de novo
 function juntaDig(s){ let a=String(s||""),b; do{ b=a;
   a=a.replace(/(\d)\s+([\d.\-\/])/g,"$1$2").replace(/([\d.\-\/])\s+(\d)/g,"$1$2"); }while(a!==b); return a; }
+// palavras quebradas pela camada de texto ("M auá", "Piment el", "S a nto André"):
+// refaz iterativamente; palavras curtas legítimas (de, da, do…) ficam
+function juntaPal(s){
+  const STOP=new Set(["de","da","do","das","dos","na","no","nas","nos","em","e","a","o","ao","aos","à","às","com","sem","um","dois","tres","três","km"]);
+  let a=String(s||""),b;
+  do{ b=a;
+    a=a.replace(/\b([A-ZÀ-Ü])\s+(?=[a-zà-üç])/g,"$1");            // "M auá" → "Mauá" · "A v." → "Av."
+    a=a.replace(/\b([a-zà-üç])\s+(?=[ºª])/g,"$1");                // "n º" → "nº"
+    a=a.replace(/([A-Za-zÀ-üç]*[a-zà-üç])\s+([a-zà-üç]{1,4})\b(?!\.)/g,(m,x,y)=>STOP.has(y)?m:x+y); // "Piment el" → "Pimentel"
+  }while(a!==b);
+  return a;
+}
 // idem para palavras ("recl amada"): fz() gera regex que tolera espaços intrusos na palavra-chave
 function fz(str){ return str.split("").map(c=>{
   if(c===" ") return "\\s+";
@@ -630,34 +642,110 @@ function poe(id,valor,rotulo,feitos){
   if(!el||!valor||el.value) return;
   el.value=valor; AUTO.add(id); el.classList.add("autofill"); feitos.push(rotulo);
 }
+// categoria e gênero — SÓ da ATA de audiência (nunca do corpo da inicial: caso Lilian,
+// inicial montada por cópia com gênero/função de outra pessoa)
+function extrairAtaMeta(t, feitos){
+  const cnjProc=(document.getElementById("processo_numero_cnj").value||"").trim();
+  const cnjs=[...t.matchAll(/\d{7}\s*-\s*\d{2}\s*\.\s*\d{4}\s*\.\s*\d\s*\.\s*\d{2}\s*\.\s*\d{4}/g)]
+    .map(x=>({i:x.index,n:x[0].replace(/\s+/g,"")}));
+  const cnjAntes=p=>{ let u=null; for(const c of cnjs){ if(c.i>=p) break; u=c; } return u; };
+  const det=new Set(); let masc=0,fem=0;
+  for(const m of t.matchAll(/ATA DE AUDI[ÊE]NCIA|TERMO DE AUDI[ÊE]NCIA/gi)){
+    const pv=cnjAntes(m.index);
+    if(cnjProc && pv && pv.n!==cnjProc) continue;        // ata de processo embutido nos autos
+    let seg=t.slice(m.index, m.index+12000);
+    const c=seg.match(/\n[^\S\n]*(?:PROCURA[ÇC][ÃA]O|SUBSTABELECIMENTO|CARTA DE PREPOSI[ÇC][ÃA]O|CONTESTA[ÇC][ÃA]O|ATESTADO)[^\S\n]*\n/);
+    if(c) seg=seg.slice(0,c.index);                      // título de peça seguinte encerra a ata
+    for(const d of seg.matchAll(/insalubr\w+|periculos\w+/gi)){
+      const ctx=seg.slice(Math.max(0,d.index-160), d.index+160);
+      if(/e\s*\/\s*ou/.test(ctx)) continue;              // "(insalubridade e/ou periculosidade)" é boilerplate
+      if(/determin|nomead|nomei|argui[çc]|apura[çc]/i.test(ctx))
+        det.add(/^insalubr/i.test(d[0])?"insalubridade":"periculosidade");
+    }
+    // quesitos médicos dentro da ata usam morfologia inconsistente ("a reclamante … portador"): fora
+    const gseg=seg.replace(/QUESITOS\s+M[ÉE]DICOS[\s\S]*?(?=\n[^\na-zà-üç]{6,}\n|$)/g,"");
+    masc+=(gseg.match(/\b[oO] reclamante\b|\bdo reclamante\b|\bao reclamante\b|\bo autor\b/g)||[]).length;
+    fem +=(gseg.match(/\b[aA] reclamante\b|\bda reclamante\b|\bà reclamante\b|\ba autora\b/g)||[]).length;
+  }
+  const cat = det.size===2 ? "insalubridade_periculosidade" : (det.size===1 ? [...det][0] : "");
+  if(cat) poe("meta_categoria", cat, "categoria (determinação na ata — conferir)", feitos);
+  let gen="", src="";
+  if(masc>fem){ gen="M"; src="tratamento na ata"; }
+  else if(fem>masc){ gen="F"; src="tratamento na ata"; }
+  else{ // juíza que escreve neutro ("o(a) reclamante"): heurística pelo 1º nome — sempre conferir
+    const nome=(document.getElementById("processo_reclamante").value||"").trim().split(/\s+/)[0];
+    if(nome){ gen=/a$/i.test(nome)?"F":"M"; src="1º nome, heurística"; }
+  }
+  if(gen) poe("meta_genero", gen, `gênero (${src} — conferir)`, feitos);
+}
 function autoPreencher(t){
   const feitos=[];
   let m=t.match(/\d{7}\s*[-–]\s*\d{2}\s*\.\s*\d{4}\s*\.\s*5\s*\.\s*\d{2}\s*\.\s*\d{4}/);
   if(m) poe("processo_numero_cnj", m[0].replace(/\s+/g,""), "nº CNJ", feitos);
-  m=t.match(/(\d{1,2})\s*[ªa°.]?\s*VARA DO TRABALHO DE\s+([A-Za-zÀ-ü' ]{3,40}?)(?=\s*[-–,;.\n(]|\s{3,}|$)/i);
+  // vara/comarca: 1º a capa do PJe ("Órgão Julgador:", correta em 9/9 no teste de 18/08);
+  // regex no corpo só como fallback — acórdão citado em contestação dava vara de OUTRO processo
+  m=t.match(/[ÓO]rg[ãa]o\s+Julgador\s*:\s*(\d{1,2})\s*[ªa°.]?\s*Vara\s+do\s+Trabalho\s+de\s+([A-Za-zÀ-ü' ]{3,40}?)(?=\s*[-–,;.\n(]|\s{3,}|$)/i)
+   || t.match(/(\d{1,2})\s*[ªa°.]?\s*VARA DO TRABALHO DE\s+([A-Za-zÀ-ü' ]{3,40}?)(?=\s*[-–,;.\n(]|\s{3,}|$)/i);
   if(m){ poe("processo_vara", `${m[1]}ª Vara do Trabalho de ${limpaNome(m[2])}`, "vara", feitos);
          poe("processo_comarca_uf", limpaNome(m[2]), "comarca", feitos); }
-  m=t.match(/RECLAMANTES?\s*[:\-]\s*([^\n]{3,90})/i) || t.match(/\bAUTORA?\s*[:\-]\s*([^\n]{3,90})/i);
+  // partes SÓ da capa do PJe: no corpo, "REQUER a Reclamada:", "Proposta da reclamada: 5.000,00"
+  // e "testemunha da parte reclamada: NOME" viravam 2ª reclamada falsa (4/7 no teste de 18/08)
+  const fimCapa=t.indexOf("PAGINA_CAPA_PROCESSO_PJE");
+  const capa=t.slice(0, fimCapa>0?fimCapa:8000);
+  m=capa.match(/RECLAMANTES?\s*[:\-]\s*([^\n]{3,90})/i) || t.match(/RECLAMANTES?\s*[:\-]\s*([^\n]{3,90})/i) || t.match(/\bAUTORA?\s*[:\-]\s*([^\n]{3,90})/i);
   if(m) poe("processo_reclamante", limpaNome(m[1]), "reclamante", feitos);
-  // qualificação da petição inicial (1ª ocorrência no processo)
-  m=t.match(/CPF[^\n\d]{0,20}(\d[\d. \-]{9,16}\d)/i);
-  if(m) poe("reclamante_cpf", m[1].replace(/\s+/g,""), "CPF", feitos);
-  m=t.match(/\bR\.?\s?G\.?[^\n\d]{0,20}(\d[\d. \-xX]{4,13}[\dxX])/i);
-  if(m) poe("reclamante_rg", m[1].replace(/\s+/g,""), "RG", feitos);
-  m=t.match(/nascid[oa]\s+em\s+(\d{2}\/\d{2}\/\d{4})/i);
-  if(m) poe("reclamante_nascimento", dataISO(m[1]), "nascimento", feitos);
-  else{ // data por extenso ("25 de abril de 1956")
-    const MES={janeiro:1,fevereiro:2,"março":3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12};
-    m=t.match(/nascid[oa]\s+em\s+(\d{1,2})\s*de\s*([a-zç]+)\s*de\s*(\d{4})/i);
-    if(m && MES[m[2].toLowerCase()])
-      poe("reclamante_nascimento", `${m[3]}-${String(MES[m[2].toLowerCase()]).padStart(2,"0")}-${m[1].padStart(2,"0")}`, "nascimento", feitos);
+  // qualificação: SÓ na vizinhança do nome do reclamante — a 1ª ocorrência global pegava o
+  // gerente predial (certidão do oficial), sócios da JUCESP e testemunha da ata (teste 18/08);
+  // juntaLin refaz dígito quebrado pela linha ("401.166.328 -¶01" perdia o DV)
+  const juntaLin=s=>s.replace(/([\d.\-\/])[ \t]*\n{1,2}[ \t]*(\d)/g,"$1$2").replace(/(\d)[ \t]*\n{1,2}[ \t]*([\d.\-\/])/g,"$1$2");
+  const MESES={janeiro:1,fevereiro:2,"março":3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12};
+  const nomeTk=(document.getElementById("processo_reclamante").value||"").trim().split(/\s+/);
+  const pn=nomeTk[0]||"";
+  const zonas=[];
+  const abreZonas=anc=>{
+    for(const x of t.matchAll(new RegExp("\\b"+anc+"\\b","gi"))){
+      // "RECLAMANTE: NOME" de cabeçalho de certidão/mandado abre zona que emenda no corpo
+      // do documento (CPF do gerente predial veio daí) — cabeçalho não é qualificação
+      if(/(?:RECLAMANTES?|DESTINAT[ÁA]RIOS?|RECLAMAD[OA]S?|R[ÉE]U)\s*[:\-]\s*$/i.test(t.slice(Math.max(0,x.index-30), x.index))) continue;
+      zonas.push(juntaLin(t.slice(x.index, x.index+900))); if(zonas.length>=40) break;
+    }};
+  // âncora = 2 primeiros nomes (1º nome sozinho abre zona de homônimo — 4 "Guilhermes"
+  // diferentes num só processo); só cai para o 1º nome se os dois juntos não aparecerem
+  if(pn.length>=3){
+    if(nomeTk.length>=2) abreZonas(pn+"\\s+"+nomeTk[1]);
+    if(!zonas.length) abreZonas(pn);
   }
-  m=t.match(/\b(solteir[oa]|casad[oa]|divorciad[oa]|desquitad[oa]|vi[úu]v[oa]|separad[oa](?:\s+judicialmente)?|em\s+uni[ãa]o\s+est[áa]vel)\b/i);
+  const acha=re=>{ for(const z of zonas){ const r=z.match(re); if(r) return r; } return null; };
+  // divergência entre peças: coleta TODOS os valores distintos; o campo recebe o 1º na
+  // ordem dos autos e a divergência se REGISTRA, não se arbitra (regra do projeto)
+  const achaTodos=(res,norm)=>{ const s=new Map();
+    for(const z of zonas) for(const re of res){ const r=z.match(re);
+      if(r&&r[1]){ const k=norm(r[1]); if(k&&!s.has(k)) s.set(k,r[1]); } }
+    // valor truncado que é prefixo de um completo é o MESMO dado, não divergência
+    return [...s.entries()].filter(([k])=>![...s.keys()].some(o=>o!==k&&o.startsWith(k))).map(([,v])=>v); };
+  const marcaDiv=(campo,rotulo,vals)=>{ if(vals.length>1){
+      if(ANEXO){ ANEXO.divergencias=ANEXO.divergencias||[]; ANEXO.divergencias.push({campo, valores:vals}); }
+      return `${rotulo} (⚠ DIVERGE entre peças: ${vals.join(" ≠ ")} — conferir)`; }
+    return rotulo; };
+  let vs=achaTodos([/C\.?\s?P\.?\s?F\.?[^\n\d]{0,25}(\d[\d. \-]{9,16}\d)/i], v=>v.replace(/\D/g,"")).map(v=>v.replace(/\s+/g,""));
+  if(vs.length) poe("reclamante_cpf", vs[0], marcaDiv("reclamante.cpf","CPF",vs), feitos);
+  vs=achaTodos([/\bR\.?\s?G\.?[^\n\d]{0,25}(\d[\d. \-xX]{4,13}[\dxX])/i], v=>v.replace(/[^0-9xX]/g,"").toUpperCase()).map(v=>v.replace(/\s+/g,""));
+  if(vs.length) poe("reclamante_rg", vs[0], marcaDiv("reclamante.rg","RG",vs), feitos);
+  { // nascimento: "nascido em dd/mm/aaaa", por extenso, e o rótulo "Nascimento:" das fichas
+    const nasc=new Map();
+    for(const z of zonas){
+      let r=z.match(/nascid[oa]\s+em\s+(\d{2}\/\d{2}\/\d{4})/i) || z.match(/Nascimento\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
+      if(r){ const v=dataISO(r[1]); if(v&&!nasc.has(v)) nasc.set(v,v); }
+      r=z.match(/nascid[oa]\s+em\s+(\d{1,2})\s*de\s*([a-zç]+)\s*de\s*(\d{4})/i);
+      if(r&&MESES[r[2].toLowerCase()]){ const v=`${r[3]}-${String(MESES[r[2].toLowerCase()]).padStart(2,"0")}-${r[1].padStart(2,"0")}`; if(!nasc.has(v)) nasc.set(v,v); }
+    }
+    const nv=[...nasc.keys()];
+    if(nv.length) poe("reclamante_nascimento", nv[0], marcaDiv("reclamante.nascimento","nascimento",nv), feitos);
+  }
+  m=acha(/\b(solteir[oa]|casad[oa]|divorciad[oa]|desquitad[oa]|vi[úu]v[oa]|separad[oa](?:\s+judicialmente)?|em\s+uni[ãa]o\s+est[áa]vel)\b/i);
   if(m) poe("reclamante_estado_civil", m[1].toLowerCase(), "estado civil", feitos);
-  m=t.match(/CNPJ[^\n\d]{0,30}(\d[\d. \/\-]{12,20}\d)/i);
-  if(m) poe("reclamada_cnpj", m[1].replace(/\s+/g,""), "CNPJ", feitos);
   const vistos=new Set(), recs=[];
-  for(const x of t.matchAll(/RECLAMAD[AO]S?\s*[:\-]\s*([^\n]{3,110})/gi)){
+  for(const x of capa.matchAll(/RECLAMAD[AO]S?\s*[:\-]\s*([^\n]{3,110})/gi)){
     const v=limpaNome(x[1]); if(!v) continue;
     const k=v.replace(/[^A-Za-zÀ-ü0-9]/g,"").toUpperCase();  // "FER KOD A" = "FERKODA" = "FERKODA S/A" (carimbo/pontuação)
     if(vistos.has(k)) continue; vistos.add(k); recs.push(v);
@@ -666,23 +754,78 @@ function autoPreencher(t){
   if(recs[1]){ poe("processo_reclamada2", recs[1], "2ª reclamada", feitos);
     const nr=document.getElementById("meta_n_reclamadas");
     if(nr.value!=="2"){ nr.value="2"; mudaReclamadas(); } }
-  m=t.match(/admitid[oa]\s+(?:em|na data de)\s+(\d{2}\/\d{2}\/\d{4})/i);
-  if(m) poe("vinculo_admissao", dataISO(m[1]), "admissão", feitos);
-  m=t.match(/(?:demitid[oa]|dispensad[oa]|desligad[oa])\s+(?:em|na data de)\s+(\d{2}\/\d{2}\/\d{4})/i)
-   || t.match(/(\d{2}\/\d{2}\/\d{4})[^\n]{0,40}?foi\s+(?:demitid|dispensad|desligad)/i);
-  if(m) poe("vinculo_demissao", dataISO(m[1]), "demissão", feitos);
+  // CNPJ: só na vizinhança da razão social da reclamada — a 1ª ocorrência global era o
+  // CNPJ do SINDICATO da CCT no 1001019 (teste 18/08)
+  {
+    const nrm=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
+    const GEN=new Set(["LTDA","LIMITADA","EIRELI","COMERCIO","INDUSTRIA","SERVICOS","SOCIEDADE","ANONIMA","BRASIL","EMPRESA",
+      "INCORPORADORA","CONSTRUTORA","DISTRIBUIDORA","ADMINISTRADORA","PARTICIPACOES","ENGENHARIA","TRANSPORTES","LOGISTICA","IMOBILIARIA","HOLDING","GRUPO","COMPANHIA"]);
+    const chaves=(nrm(document.getElementById("processo_reclamada").value||"").match(/[A-Z0-9]{5,}/g)||[]).filter(x=>!GEN.has(x));
+    if(chaves.length){
+      const cs=new Map();
+      for(const x of t.matchAll(/CNPJ[^\n\d]{0,30}\d[\d. \/\-\n]{10,24}\d/gi)){
+        const ctx=nrm(t.slice(Math.max(0,x.index-260), x.index+40));
+        if(!chaves.some(k=>ctx.includes(k))) continue;
+        const v=juntaLin(x[0]).match(/(\d[\d. \/\-]{12,20}\d)/);
+        if(v){ const val=v[1].replace(/\s+/g,""), k=val.replace(/\D/g,"");
+          if(k.length>=12 && !cs.has(k)) cs.set(k,val); }
+      }
+      // valor truncado que é prefixo de um completo não é divergência, é o mesmo CNPJ
+      let cv=[...cs.entries()].filter(([k])=>![...cs.keys()].some(o=>o!==k&&o.startsWith(k))).map(([,v])=>v);
+      // mesma raiz de 8 dígitos = matriz × filial da MESMA empresa: aviso próprio
+      // (a filial costuma ser o local vistoriado)
+      const raizes=new Set(cv.map(v=>v.replace(/\D/g,"").slice(0,8)));
+      if(cv.length>1 && raizes.size===1){
+        if(ANEXO){ ANEXO.divergencias=ANEXO.divergencias||[]; ANEXO.divergencias.push({campo:"reclamada.cnpj", tipo:"matriz_filial", valores:cv}); }
+        poe("reclamada_cnpj", cv[0], `CNPJ (⚠ matriz × filial: ${cv.join(" ≠ ")} — conferir qual é a do local vistoriado)`, feitos);
+      }
+      else if(cv.length) poe("reclamada_cnpj", cv[0], marcaDiv("reclamada.cnpj","CNPJ",cv), feitos);
+    }
+  }
+  // admissão/demissão: verbo pode vir longe da data ("admitido pelas Reclamadas no dia…",
+  // "dispensado sem justa causa em…"), data pode vir por extenso, a camada de texto pode
+  // espaçar os dígitos ("18 /0 1 /20 22") — e o manual do eSocial embutido nos autos traz
+  // datas de EXEMPLO (contexto com "Exemplo"/"S-2299" não vale; teste 18/08)
+  {
+    const tD=juntaDig(t);
+    const EXEMPLO=/exemplo|declarante|S\s*-?\s*2\d{3}|retroativo|InfoPerAnt/i;
+    const achaDatas=(re,conv)=>{ const s=[];
+      for(const x of tD.matchAll(re)){
+        if(EXEMPLO.test(tD.slice(Math.max(0,x.index-260), x.index+260))) continue;
+        const v=conv(x); if(v && !s.includes(v)) s.push(v); }
+      return s; };
+    const iso=x=>dataISO(x[1]);
+    const isoExt=x=>MESES[x[2].toLowerCase()] ? `${x[3]}-${String(MESES[x[2].toLowerCase()]).padStart(2,"0")}-${x[1].padStart(2,"0")}` : null;
+    // (?!s): "TRABALHADORES admitidos a partir de…" é cláusula de CCT, não o vínculo
+    const adms=achaDatas(/admitid[oa](?!s)[^\n.;]{0,60}?(?:\bem|\bno dia|\bna data de)\s+(\d{2}\/\d{2}\/\d{4})/gi, iso)
+      .concat(achaDatas(/admitid[oa](?!s)[^\n.;]{0,60}?(?:\bem|\bno dia|\bna data de)\s+(\d{1,2})\s*de\s*([a-zç]+)\s*de\s*(\d{4})/gi, isoExt))
+      .filter((v,i,a)=>a.indexOf(v)===i);
+    let dems=achaDatas(/(?:demitid[oa]|dispensad[oa]|desligad[oa])(?!s)[^\n.;]{0,60}?(?:\bem|\bno dia|\bna data de)\s+(\d{2}\/\d{2}\/\d{4})/gi, iso)
+      .concat(achaDatas(/(\d{2}\/\d{2}\/\d{4})[^\n]{0,40}?foi\s+(?:demitid|dispensad|desligad)/gi, iso))
+      .filter((v,i,a)=>a.indexOf(v)===i);
+    const adm=adms[0]||null;
+    if(adm) dems=dems.filter(v=>v>=adm);       // demissão anterior à admissão = lixo
+    if(adm) poe("vinculo_admissao", adm, marcaDiv("vinculo.admissao","admissão",adms), feitos);
+    if(dems.length) poe("vinculo_demissao", dems[0], marcaDiv("vinculo.demissao","demissão",dems), feitos);
+  }
   m=t.match(/fun[çc][ãa]o\s+de\s+([A-Za-zÀ-ü][^\n,.;()]{2,60})/i);
   if(m) poe("vinculo_funcao", limpaNome(m[1]), "função", feitos);
   // jornada — como narrada na inicial (escala NxN) ou em resumo "Jornada de trabalho:"
   m=t.match(/\bescala\s*\d[ \t]*\d?\s*x\s*\d[^]{0,500}?\.(?=\s)/i)
    || t.match(new RegExp(fz("jornada de trabalho")+"\\s*:?\\s*([^]{5,260}?);","i"));
-  if(m) poe("vinculo_jornada", sq(limparPJe(m[1]!==undefined?m[1]:m[0])), "jornada (dos autos — conferir)", feitos);
+  if(m){
+    const jc=sq(limparPJe(m[1]!==undefined?m[1]:m[0]));
+    // boilerplate de contestação (Súmula 338/art. 62) e cláusula de CCT não são jornada (teste 18/08)
+    if(/\d/.test(jc) && !/s[úu]mula|artigos?\s*62|cl[áa]usul|caf[ée]/i.test(jc))
+      poe("vinculo_jornada", jc, "jornada (dos autos — conferir)", feitos);
+  }
   // honorários: só a fixação judicial dos periciais — pedido de parte não vale
   m=t.match(/(?:fix|arbitr)\w*[^\n]{0,80}?honor[áa]rios(?:\s+periciais)?[^\n]{0,60}?R\$\s*([\d.]+(?:,\d{2})?)/i)
    || t.match(/honor[áa]rios\s+periciais[^\n]{0,80}?(?:fixad|arbitrad)\w*[^\n]{0,40}?R\$\s*([\d.]+(?:,\d{2})?)/i);
   if(m) poe("processo_honorarios", m[1], "honorários (fixação — conferir)", feitos);
   // vistoria já agendada — petição do próprio perito nos autos é a melhor fonte
-  m=t.match(new RegExp(fz("perícia será realizada no dia")+"\\s*([\\d\\s\\/]{8,20})","i"));
+  { const todas=[...t.matchAll(new RegExp(fz("perícia será realizada no dia")+"\\s*([\\d\\s\\/]{8,20})","gi"))];
+    m=todas.length?todas[todas.length-1]:null; }   // remarcada? vale a ÚLTIMA petição do perito (teste 18/08)
   if(m){
     poe("vistoria_data", dataISO(m[1]), "data da vistoria (petição do perito nos autos)", feitos);
     const dep=t.slice(m.index, m.index+700);
@@ -690,16 +833,16 @@ function autoPreencher(t){
     if(h){ const hv=h[1].replace(/\s+/g,"").replace("h",":");
       if(/^\d{1,2}:\d{2}$/.test(hv)) poe("vistoria_hora_inicio", hv.padStart(5,"0"), "hora de início (petição do perito)", feitos); }
     const e=dep.match(new RegExp(fz("instalações da reclamada")+"\\s*,?\\s*([^]{10,220}?C\\s*E\\s*P\\s*[.:]*\\s*[\\d\\s.\\-]{7,16})","i"));
-    if(e) poe("reclamada_endereco", sq(juntaDig(e[1])), "endereço vistoriado (petição do perito)", feitos);
+    if(e) poe("reclamada_endereco", juntaPal(sq(juntaDig(e[1]))), "endereço vistoriado (petição do perito)", feitos);
     const pj=t.slice(m.index, m.index+3000).match(/assinado\s+eletronicamente\s+por\s+[^,\n]{3,60},\s*em\s+(\d[\d\s\/]{8,12})/i);
     if(pj) poe("vistoria_data_peticao_pje", dataISO(pj[1]), "data da petição no PJe (assinatura do perito)", feitos);
   }
   // endereço do local de trabalho pedido na inicial ("vistoria no ambiente de trabalho, qual seja: …")
   m=t.match(new RegExp(fz("qual seja")+"\\s*:?\\s*([^]{10,220}?C\\s*E\\s*P\\s*[.:]*\\s*[\\d\\s.\\-]{7,16}(?:\\s*,?\\s*[A-ZÀ-Ü][A-Za-zà-ü]+\\s*\\/\\s*[A-Z]{2})?)","i"));
   if(m && /vistoria|per[íi]cia|ambiente/i.test(t.slice(Math.max(0,m.index-300),m.index)))
-    poe("reclamada_endereco", sq(juntaDig(m[1])), "endereço vistoriado (pedido da inicial — conferir)", feitos);
+    poe("reclamada_endereco", juntaPal(sq(juntaDig(m[1]))), "endereço vistoriado (pedido da inicial — conferir)", feitos);
   m=t.match(/(?:estabelecid[ao]|com sede|sediad[ao])\s+(?:na|no|à|a|em)\s+([^\n]{10,140}?CEP[.:\s]*[\d.\- ]{8,12})/i);
-  if(m) poe("reclamada_endereco", sq(juntaDig(m[1])), "endereço da reclamada (sede — confirmar se é o vistoriado)", feitos);
+  if(m) poe("reclamada_endereco", juntaPal(sq(juntaDig(m[1]))), "endereço da reclamada (sede — confirmar se é o vistoriado)", feitos);
   // reclamada como pessoa jurídica — pode vir de laudo juntado aos autos (até de processo
   // conexo, mesmas reclamadas): entra amarelo e aguardando o perito, sempre conferir
   m=t.match(new RegExp(fz("Atividade principal")+"\\s*:?\\s*([^\\n;]{4,90})","i"));
@@ -726,6 +869,7 @@ function autoPreencher(t){
       feitos.push(`EPIs com C.A. (${eps.length}, dos autos — conferir na vistoria)`);
     }
   }
+  extrairAtaMeta(t, feitos);
   extrairQuesitos(t, feitos, advogadosCapa(t));
   if(AUTO.has("processo_numero_cnj")){
     const antesVara=document.getElementById("processo_vara").value;
@@ -767,6 +911,15 @@ function extrairQuesitos(t, feitos, advs){
     if(/M[ÉE]DIC[AO]/i.test(linha)) continue;                // perícia médica é do outro perito
     cand.push({li, lf, linha});
   }
+  // rol SEM título: petição em prosa "vem … apresentar os quesitos …" (caso 1000929 —
+  // a petição vai da referência do processo direto à prosa, sem linha de cabeçalho)
+  for(const x of t.matchAll(/apresentar\s+(?:os\s+)?quesitos/gi)){
+    const li=t.lastIndexOf("\n", x.index)+1;
+    let lf=t.indexOf("\n", x.index); if(lf<0) lf=t.length;
+    if(cand.some(c=>Math.abs(c.li-li)<600)) continue;      // já existe título perto
+    cand.push({li, lf, linha:t.slice(li,lf).trim()});
+  }
+  cand.sort((a,b)=>a.li-b.li);
   // passo 2: valida cada candidato e recorta o bloco (até o próximo candidato)
   const blocos=[];
   for(let ci=0; ci<cand.length; ci++){
@@ -777,8 +930,13 @@ function extrairQuesitos(t, feitos, advs){
     if(cnjProc && ant && ant.n!==cnjProc && li-ant.i<8000) continue;
     const teto=ci+1<cand.length ? cand[ci+1].li : t.length;
     let ch=t.slice(lf, Math.min(lf+14000, teto));
+    // rol de perícia MÉDICA com título neutro ("APRESENTAÇÃO DE QUESITOS"): o aviso está
+    // no corpo, não no título (caso 1000738)
+    if(/PER[ÍI]CIA\s+M[ÉE]DICA|QUESITOS?\s+M[ÉE]DIC/i.test(ch.slice(0,500))) continue;
     const itens=[...ch.matchAll(reItem)];
-    if(itens.length<2 || itens[0].index>600) continue;       // rol de verdade enumera logo abaixo
+    // limite 1800 (era 600): preâmbulo legítimo — endereço + nomeação de assistente —
+    // chegava a ~1.700 chars antes do 1º item (caso 1001191)
+    if(itens.length<2 || itens[0].index>1800) continue;      // rol de verdade enumera logo abaixo
     // rol com respostas ("R.:") = transcrição de laudo juntado, não é rol das partes
     if((ch.match(/(?:^|\n)[^\S\n]{0,40}R(?:esposta)?[^\S\n]*\.?[^\S\n]*:/gi)||[]).length>=2) continue;
     const ult=itens[itens.length-1].index;
@@ -789,12 +947,21 @@ function extrairQuesitos(t, feitos, advs){
       const mCap=resto.match(/\n(?!\s*\d{1,2}\s*[).:\-–])[^\na-zà-üç]*[A-ZÀ-Ü]{4,}[^\na-zà-üç]*\n/);
       if(mCap) ch=ch.slice(0, fimItem+mCap.index);
     }
+    // fecho da petição não é quesito ("Termos em que, Pede deferimento, cidade, data…");
+    // o corte preserva o que vem antes — "Protesta-se por quesitos complementares" fica
+    const fe=ch.search(/\n[^\S\n]*(?:Termos em que|Nestes termos|Pede[\s\-]*deferimento|P\.\s*deferimento)/i);
+    if(fe>0) ch=ch.slice(0,fe);
     const cnjsBloco=ch.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g)||[];
     if(cnjProc && cnjsBloco.some(n=>n!==cnjProc)) continue;  // margem de outro processo no meio
     let parte=null;
     // 1º critério: advogado que assinou o documento (mapa da capa do PJe, por parte)
-    const ass=[...(ch+t.slice(lf+ch.length, lf+ch.length+2500)).matchAll(/assinado\s+eletronicamente\s+por\s+([^,\n]{3,60}?),/gi)]
+    // só a 1ª assinatura conta: é o rodapé das páginas do PRÓPRIO rol — a janela larga
+    // pegava a assinatura do documento vizinho e trocava a autoria (caso 1000850)
+    let ass=[...ch.matchAll(/assinado\s+eletronicamente\s+por\s+([^,\n]{3,60}?),/gi)]
       .map(x=>sq(x[1]).toUpperCase());
+    if(!ass.length) ass=[...t.slice(lf+ch.length, lf+ch.length+2500).matchAll(/assinado\s+eletronicamente\s+por\s+([^,\n]{3,60}?),/gi)]
+      .map(x=>sq(x[1]).toUpperCase());
+    ass=ass.slice(0,1);
     if(advs && ass.length){
       const bate=lista=>lista.length && ass.some(n=>lista.some(a=>n.includes(a)||a.includes(n)));
       if(bate(advs.reclamante)) parte="reclamante";
@@ -809,6 +976,11 @@ function extrairQuesitos(t, feitos, advs){
     }
     blocos.push({parte, texto:limparPJe(linha+"\n"+ch.trim())});
   }
+  // mesmo rol protocolado 2× (uma cópia por contestação de cada reclamada): fica um só
+  const vB=new Set();
+  const unicos=blocos.filter(b=>{ const k=b.texto.replace(/\s+/g," ").slice(0,300);
+    if(vB.has(k)) return false; vB.add(k); return true; });
+  blocos.length=0; blocos.push(...unicos);
   if(!blocos.length) return;
   // sem autoria no cabeçalho: 1º rol do processo = petição inicial (reclamante); demais = reclamada
   blocos.forEach((b,i)=>{ if(!b.parte) b.parte = i===0 ? "reclamante" : "reclamada"; });
@@ -1195,10 +1367,11 @@ function exportar(){
   const registro = {meta:{arquivo_docx:null,categoria:cat,
       metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.5-2026-08-17"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.6-2026-08-18"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? {nome:ANEXO.nome, tamanho_bytes:ANEXO.tamanho, tipo:ANEXO.tipo,
       paginas:ANEXO.paginas, extraido_em:ANEXO.extraido_em, truncado:ANEXO.truncado,
+      divergencias:ANEXO.divergencias||[],   // valores que divergem entre peças — registram-se, não se arbitram
       texto_extraido:ANEXO.texto||null} : null,
     backup_formulario:dBackup};
 
