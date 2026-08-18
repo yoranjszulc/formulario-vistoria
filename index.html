@@ -64,7 +64,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v5.6 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v5.7 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -95,7 +95,7 @@
   </select>
   <div class="linha">
     <div><label>Leva seção METODOLOGIA? <b class="req">*</b></label>
-      <select id="meta_metodologia"><option value="">—</option><option value="sim">Sim</option><option value="nao">Não</option></select></div>
+      <select id="meta_metodologia"><option value="">—</option><option value="sim" selected>Sim</option><option value="nao">Não</option></select></div>
     <div><label>Gênero de quem reclama <b class="req">*</b></label>
       <select id="meta_genero"><option value="">—</option><option value="M">Masculino (o reclamante)</option><option value="F">Feminino (a reclamante)</option></select></div>
     <div><label>Quantas reclamadas?</label>
@@ -546,8 +546,22 @@ async function textoDOCX(buf){
     .replace(/&#(\d+);/g,(m,n)=>String.fromCharCode(n)).replace(/[ \t]+/g," ");
   return {texto:t, paginas:null};
 }
+// trocar de anexo: o que o anexo ANTERIOR preencheu (e o perito ainda não conferiu —
+// segue amarelo) sai, senão o processo novo herda campo velho. Campo editado fica.
+function resetAnexoCampos(){
+  if([...AUTO].some(k=>k.startsWith("protecao_epi[")))
+    document.querySelectorAll("#lst_epis .row-dyn").forEach(r=>{ if(r.querySelector("input.autofill")) r.remove(); });
+  [...AUTO,...AUTO_DER].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    if(id==="meta_n_reclamadas"){ el.value="1"; mudaReclamadas(); }
+    else el.value="";
+    el.classList.remove("autofill");
+  });
+  AUTO.clear(); AUTO_DER.clear();
+}
 async function anexarProcesso(ev){
   const f=ev.target.files[0]; ev.target.value=""; if(!f) return;
+  resetAnexoCampos();
   ANEXO_FILE=f;
   const ext=(f.name.split(".").pop()||"").toLowerCase();
   ANEXO={nome:f.name,tamanho:f.size,tipo:ext,paginas:null,
@@ -753,7 +767,7 @@ function autoPreencher(t){
   if(recs[0]) poe("processo_reclamada", recs[0], "reclamada", feitos);
   if(recs[1]){ poe("processo_reclamada2", recs[1], "2ª reclamada", feitos);
     const nr=document.getElementById("meta_n_reclamadas");
-    if(nr.value!=="2"){ nr.value="2"; mudaReclamadas(); } }
+    if(nr.value!=="2"){ nr.value="2"; AUTO.add("meta_n_reclamadas"); nr.classList.add("autofill"); mudaReclamadas(); } }
   // CNPJ: só na vizinhança da razão social da reclamada — a 1ª ocorrência global era o
   // CNPJ do SINDICATO da CCT no 1001019 (teste 18/08)
   {
@@ -986,7 +1000,7 @@ function extrairQuesitos(t, feitos, advs){
   blocos.forEach((b,i)=>{ if(!b.parte) b.parte = i===0 ? "reclamante" : "reclamada"; });
   if(blocos.some(b=>b.parte==="reclamada2")){
     const nr=document.getElementById("meta_n_reclamadas");
-    if(nr && nr.value!=="2"){ nr.value="2"; mudaReclamadas(); }
+    if(nr && nr.value!=="2"){ nr.value="2"; AUTO.add("meta_n_reclamadas"); nr.classList.add("autofill"); mudaReclamadas(); }
   }
   const rotulo={reclamante:"do reclamante", reclamada:"da reclamada", reclamada2:"da 2ª reclamada"};
   for(const parte of ["reclamante","reclamada","reclamada2"]){
@@ -1125,13 +1139,12 @@ function temDados(){
   return false;
 }
 function limpar(){
+  // escolha sempre oferecida: exportar antes, ou só limpar (pedido do Yoran, 18/08)
+  if(temDados() && confirm("Exportar esta vistoria antes de limpar?\n\nOK = Exportar (nada é apagado — clique em Limpar de novo depois)\nCancelar = seguir para limpar sem exportar")){ exportar(); return; }
   let aviso="Apagar tudo que foi preenchido NESTA vistoria? (as outras vistorias do aparelho não são afetadas)";
   try{
     const exp=+(localStorage.getItem(LS+"_export")||0), ed=+(localStorage.getItem(LS+"_edit")||0);
-    if(temDados() && ed>exp){
-      if(confirm("Há alterações que NUNCA foram exportadas.\n\nExportar agora? (esta opção NÃO apaga nada — para apagar, clique em Limpar de novo depois)")){ exportar(); return; }
-      aviso="Apagar SEM exportar? O que não foi exportado se perde de vez.";
-    }
+    if(temDados() && ed>exp) aviso="Apagar SEM exportar? O que não foi exportado se perde de vez.";
   }catch(e){}
   if(!confirm(aviso)) return;
   // trava o auto-salvamento: o debounce de salvar() dispararia DEPOIS do removeItem
@@ -1367,7 +1380,7 @@ function exportar(){
   const registro = {meta:{arquivo_docx:null,categoria:cat,
       metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.6-2026-08-18"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.7-2026-08-18"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? {nome:ANEXO.nome, tamanho_bytes:ANEXO.tamanho, tipo:ANEXO.tipo,
       paginas:ANEXO.paginas, extraido_em:ANEXO.extraido_em, truncado:ANEXO.truncado,
@@ -1488,6 +1501,8 @@ function aoEditar(ev){
 document.getElementById("form").addEventListener("input", aoEditar);
 document.getElementById("form").addEventListener("change", aoEditar);
 try{ const s=localStorage.getItem(LS); if(s) aplicar(JSON.parse(s)); }catch(e){}
+// padrão decidido em 18/08: METODOLOGIA por default é SIM (a numeração base vale sempre)
+if(!document.getElementById("meta_metodologia").value) document.getElementById("meta_metodologia").value="sim";
 if(!document.querySelector("#lst_cicerones .row-dyn")) addRow("cicerones");
 if(!document.querySelector("#lst_epis .row-dyn")) addRow("epis");
 mudaReclamadas();
