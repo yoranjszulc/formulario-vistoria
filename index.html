@@ -1420,7 +1420,7 @@ function baixarOuCopiar(nome, conteudo){
     a.href=URL.createObjectURL(new Blob([conteudo],{type:"application/json;charset=utf-8"}));
     a.download=nome; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-    alert("Arquivo exportado: "+nome+"\nSalve no OneDrive, dentro da pasta Laudos — de lá ele chega ao desktop sozinho.\n\nSe o download não apareceu, use a tela de cópia que vai abrir.");
+    alert("Arquivo exportado: "+nome+"\nSalve no OneDrive, em Laudos → Troca → 1. Enviar — de lá ele chega ao desktop sozinho.\n\nSe o download não apareceu, use a tela de cópia que vai abrir.");
     setTimeout(()=>{ /* sem como detectar download bloqueado; oferecer cópia sob demanda */ },0);
   }catch(e){ modalCopia(nome, conteudo); }
 }
