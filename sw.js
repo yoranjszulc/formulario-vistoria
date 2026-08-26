@@ -1,4 +1,4 @@
-const CACHE = "vistoria-v5-7";
+﻿const CACHE = "vistoria-v5-8";
 const ARQUIVOS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
@@ -8,7 +8,7 @@ self.addEventListener("activate", e => {
     ks.filter(k => k !== CACHE).map(k => caches.delete(k))
   )).then(() => self.clients.claim()));
 });
-// navegação: tenta rede (pega atualização), cai no cache (offline na planta)
+// navegaÃ§Ã£o: tenta rede (pega atualizaÃ§Ã£o), cai no cache (offline na planta)
 self.addEventListener("fetch", e => {
   e.respondWith(
     fetch(e.request).then(r => {

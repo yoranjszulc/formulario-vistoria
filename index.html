@@ -64,7 +64,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v5.7 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v5.8 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -94,8 +94,6 @@
     <option value="insalubridade_periculosidade">Insalubridade e Periculosidade</option>
   </select>
   <div class="linha">
-    <div><label>Leva seção METODOLOGIA? <b class="req">*</b></label>
-      <select id="meta_metodologia"><option value="">—</option><option value="sim" selected>Sim</option><option value="nao">Não</option></select></div>
     <div><label>Gênero de quem reclama <b class="req">*</b></label>
       <select id="meta_genero"><option value="">—</option><option value="M">Masculino (o reclamante)</option><option value="F">Feminino (a reclamante)</option></select></div>
     <div><label>Quantas reclamadas?</label>
@@ -107,13 +105,20 @@
   <label>Arquivo do processo (PDF ou Word) — preenche o básico, os quesitos e os honorários</label>
   <input type="file" id="anexoInput" accept=".pdf,.docx,.doc" onchange="anexarProcesso(event)">
   <div class="valida" id="v_anexo"></div>
-  <div class="dica">Precisa de internet na hora de anexar. Lê PDF com texto (PJe) e .docx; PDF
-  escaneado e .doc antigo ficam só registrados — nesses casos, mande o arquivo junto com o
-  JSON exportado que a extração é feita na montagem do laudo. Campo já preenchido nunca é
-  sobrescrito; o que for preenchido pelo anexo fica <b>amarelo</b> até você mexer nele —
-  confira um a um. Os rols de quesitos achados no texto caem nas caixas de colagem da
-  seção 14 — <b>confira a autoria</b> (reclamante × reclamada) antes de exportar.
+  <div class="dica">Precisa de internet na hora de anexar. Lê PDF com texto (PJe) e .docx;
+  páginas em foto (documentos escaneados, RG/CPF anexados) passam por leitura de imagem (OCR)
+  na hora — demora um pouco e o resultado sempre precisa de conferência. .doc antigo fica só
+  registrado — mande o arquivo junto com o JSON exportado que a extração é feita na montagem
+  do laudo. Campo já preenchido nunca é sobrescrito; o que for preenchido pelo anexo fica
+  <b>amarelo</b> até você mexer nele — confira um a um. Os rols de quesitos achados no texto
+  caem nas seções 14 e 15 — <b>confira a autoria</b> (reclamante × reclamada) antes de exportar.
   <a href="#" onclick="removerAnexo();return false">Remover anexo</a></div>
+  <label>Documento de apoio do escritório (Word) — laudo pré-formatado deste caso</label>
+  <input type="file" id="refInput" accept=".docx,.doc" onchange="anexarReferencia(event)">
+  <div class="valida" id="v_ref"></div>
+  <div class="dica">Opcional. Não preenche campo nenhum: vai junto no Exportar e, na montagem
+  do laudo, os campos extraídos do processo são conferidos contra ele.
+  <a href="#" onclick="removerReferencia();return false">Remover documento de apoio</a></div>
   <label>Número do processo (CNJ) <b class="req">*</b></label>
   <input type="text" id="processo_numero_cnj" inputmode="numeric" placeholder="0000000-00.0000.0.00.0000" autocomplete="off">
   <div class="valida" id="v_cnj"></div>
@@ -132,7 +137,7 @@
   <div id="grp_reclamada2" class="oculto">
     <label>2ª reclamada (e seguintes) — razão social <b class="req">*</b></label>
     <input type="text" id="processo_reclamada2">
-    <div class="dica">Com 2 ou mais reclamadas, os quesitos vão em seções separadas — a seção 14 ganha o bloco da 2ª reclamada.</div>
+    <div class="dica">Com 2 ou mais reclamadas, os quesitos vão em seções separadas — a seção 15 ganha o bloco da 2ª reclamada.</div>
   </div>
   <div class="linha">
     <div><label>Honorários (R$)</label><input type="text" id="processo_honorarios" placeholder="ex.: 15.180,00"><div class="dica">Em branco = confirmar com o perito.</div></div>
@@ -281,22 +286,35 @@
   </div>
 </div></details>
 
-<details id="sec-quesitos"><summary>14. Quesitos</summary><div class="corpo">
-  <div class="dica">Os quesitos vêm do anexo do processo (seção 2) e caem nas caixas abaixo. <b>Confira a autoria</b> — reclamante × reclamada — antes de exportar: os autos costumam trazer peças de ações conexas e quesitos de perícia médica, que são de outro perito e não entram neste laudo. Sem anexo, cole o texto corrido do PJe. A segmentação em quesito por quesito é feita depois, no escritório.</div>
-  <label>Do reclamante — colagem do texto corrido</label>
+<details id="sec-quesitos-reclamante"><summary>14. Quesitos do reclamante</summary><div class="corpo">
+  <div class="dica">Os quesitos vêm do anexo do processo (seção 2): caem na caixa de colagem e
+  são separados em uma box por pergunta, na numeração dos autos. <b>Confira a autoria</b> —
+  reclamante × reclamada — antes de exportar: os autos costumam trazer peças de ações conexas
+  e quesitos de perícia médica, que são de outro perito e não entram neste laudo. Sem anexo,
+  cole o texto corrido do PJe e toque em "Separar em perguntas". A pergunta é literal — não se
+  reescreve; a resposta é do perito, na montagem.</div>
+  <label>Colagem do texto corrido (como veio dos autos)</label>
   <textarea id="quesitos_colados_reclamante" placeholder="cole aqui os quesitos como vieram dos autos"></textarea>
+  <button class="add" type="button" onclick="segmentaQuesitos('reclamante')">Separar em perguntas</button>
   <div id="lst_quesitos_reclamante"></div>
-  <label style="margin-top:.8rem">Da reclamada — colagem do texto corrido</label>
+</div></details>
+
+<details id="sec-quesitos-reclamada"><summary>15. Quesitos da(s) reclamada(s)</summary><div class="corpo">
+  <div class="dica">Mesma regra da seção 14: colagem literal, uma box por pergunta,
+  <b>autoria conferida</b> antes de exportar.</div>
+  <label>Da reclamada — colagem do texto corrido</label>
   <textarea id="quesitos_colados_reclamada" placeholder="cole aqui os quesitos como vieram dos autos"></textarea>
+  <button class="add" type="button" onclick="segmentaQuesitos('reclamada')">Separar em perguntas</button>
   <div id="lst_quesitos_reclamada"></div>
   <div id="grp_quesitos_reclamada2" class="oculto">
     <label style="margin-top:.8rem">Da 2ª reclamada — colagem do texto corrido</label>
     <textarea id="quesitos_colados_reclamada2" placeholder="cole aqui os quesitos como vieram dos autos"></textarea>
+    <button class="add" type="button" onclick="segmentaQuesitos('reclamada2')">Separar em perguntas</button>
     <div id="lst_quesitos_reclamada2"></div>
   </div>
 </div></details>
 
-<details id="sec-obs"><summary>15. Observações livres</summary><div class="corpo">
+<details id="sec-obs"><summary>16. Observações livres</summary><div class="corpo">
   <label>Qualquer coisa que não coube acima (documentos dos autos usados, setor desativado/modo documental, migração de setor…)</label>
   <textarea class="grande" id="observacoes_texto"></textarea>
 </div></details>
@@ -509,33 +527,95 @@ function montaNR(){
 /* Preenchimento híbrido: o formulário faz o básico (CNJ, vara, partes, datas)
    quando o PDF tem camada de texto; o texto extraído segue no JSON exportado
    para o Claude revalidar e completar tudo na montagem do laudo.             */
-let ANEXO=null;                          // {nome,tamanho,tipo,paginas,extraido_em,truncado,texto}
+let ANEXO=null;                          // {nome,tamanho,tipo,paginas,extraido_em,truncado,texto,ocr_paginas}
 let ANEXO_FILE=null;                     // o arquivo em si, para gravar junto do JSON (não persiste)
+let ANEXO_TEXTO_FULL=null;               // texto INTEIRO dos autos, só em memória: o cap de 600k é
+                                         // limite do localStorage — o registro exportado leva tudo
+                                         // (caso Taminco, 1,37M chars: a montagem precisava do fim)
+let ANEXO_REF=null;                      // documento de apoio do escritório (gabarito de conferência)
+let ANEXO_REF_FILE=null;                 // idem: o File não sobrevive ao localStorage
 let AUTO=new Set(), AUTO_DER=new Set();  // ids preenchidos pelo anexo / derivados do CNJ
+let AUTO_ORIG={};                        // id → origem "derivado:<regra>" (cidade, atividade por CNAE)
 const ANEXO_CAP=600000;                  // limite de caracteres p/ caber no localStorage
+const REF_CAP=300000;                    // idem, para o documento de apoio
 function setAnexoMsg(txt,cls){ const fb=document.getElementById("v_anexo"); fb.textContent=txt; fb.className="valida "+(cls||""); }
+function setRefMsg(txt,cls){ const fb=document.getElementById("v_ref"); fb.textContent=txt; fb.className="valida "+(cls||""); }
 function scriptCDN(url){ return new Promise((res,rej)=>{
   if(document.querySelector(`script[src="${url}"]`)) return res();
   const s=document.createElement("script"); s.src=url; s.onload=res;
   s.onerror=()=>rej(new Error("sem internet ou CDN bloqueado")); document.head.appendChild(s); }); }
+const OCR_LIMIAR=250;   // página com menos que isto de texto útil (fora espaços) = página em foto
+const OCR_MAX=30;       // teto de páginas OCRadas por anexo — autos 100% escaneados não travam o navegador
 async function textoPDF(buf){
   await scriptCDN("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
   pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-  let t="";
+  const pags=[];                       // texto por página — o OCR decide página a página
   for(let p=1;p<=pdf.numPages;p++){
     setAnexoMsg(`lendo página ${p}/${pdf.numPages}…`,"aviso");
     const tc=await (await pdf.getPage(p)).getTextContent();
-    let y=null;                        // quebra de linha por posição vertical / hasEOL
+    let t="", y=null;                  // quebra de linha por posição vertical / hasEOL
     tc.items.forEach(i=>{
       const yi=i.transform?i.transform[5]:null;
       if(y!==null && yi!==null && Math.abs(yi-y)>2) t+="\n";
       t+=i.str+(i.hasEOL?"\n":" ");
       if(yi!==null) y=yi;
     });
-    t+="\n\n";
+    pags.push(t);
   }
-  return {texto:t, paginas:pdf.numPages};
+  // página em foto (escaneada) muitas vezes ainda carrega o carimbo do PJe na camada de
+  // texto — o limiar pega "só carimbo"; o texto original FICA (o carimbo traz o nº CNJ,
+  // que os guardas de peça embutida usam) e o OCR entra depois dele
+  const semTexto=[];
+  pags.forEach((t,i)=>{ if(t.replace(/\s/g,"").length<OCR_LIMIAR) semTexto.push(i); });
+  let ocrFeitas=0, ocrPuladas=0;
+  if(semTexto.length){
+    const alvo=semTexto.slice(0,OCR_MAX); ocrPuladas=semTexto.length-alvo.length;
+    const tmo=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error("OCR: tempo esgotado")),ms))]);
+    let worker=null, pdfO=null;
+    try{
+      await scriptCDN("https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js");
+      worker=await tmo(Tesseract.createWorker("por"),90000);
+      // documento PRÓPRIO para o OCR: imagem escaneada patológica emperra o worker do
+      // pdf.js para sempre (visto no Ferkoda, pág. 26 — cancel() não solta); num doc
+      // separado a trava fica contida e o doc é recriado para as páginas seguintes
+      const dados=await pdf.getData();
+      const novoDoc=()=>pdfjsLib.getDocument({data:dados.slice()}).promise;
+      pdfO=await novoDoc();
+      let na=0, travas=0;
+      for(const i of alvo){
+        setAnexoMsg(`lendo página em foto (OCR) ${++na}/${alvo.length}…`,"aviso");
+        try{
+          const pg=await tmo(pdfO.getPage(i+1),15000);
+          // página escaneada em alta resolução × scale 2 = canvas de dezenas de Mpx —
+          // teto de ~2000 px no maior lado
+          const vp1=pg.getViewport({scale:1});
+          const escala=Math.min(2, 2000/Math.max(vp1.width,vp1.height));
+          const vp=pg.getViewport({scale:escala});
+          const cv=document.createElement("canvas"); cv.width=Math.ceil(vp.width); cv.height=Math.ceil(vp.height);
+          // intent print: o render de intent display agenda via requestAnimationFrame,
+          // que NUNCA dispara em aba oculta/de fundo — o OCR travava fora do 1º plano
+          const task=pg.render({canvasContext:cv.getContext("2d"), viewport:vp, intent:"print"});
+          try{ await tmo(task.promise,30000); }
+          catch(e){ try{ task.cancel(); }catch(_){ } throw e; }
+          const r=await tmo(worker.recognize(cv),45000);
+          const tx=(r&&r.data&&r.data.text||"").trim();
+          if(tx){ pags[i]=pags[i]+"\n"+tx+"\n"; ocrFeitas++; }
+          travas=0;
+        }catch(e){
+          if(++travas>=3){ ocrPuladas+=alvo.length-na; break; }   // 3 seguidas: desiste do resto
+          try{ if(pdfO) pdfO.destroy(); }catch(_){ }
+          try{ pdfO=await tmo(novoDoc(),20000); }
+          catch(_){ pdfO=null; ocrPuladas+=alvo.length-na; break; }
+        }
+      }
+    }catch(e){ /* sem internet/CDN: páginas em foto seguem sem texto, como antes */ }
+    finally{
+      try{ if(worker) await worker.terminate(); }catch(e){}
+      try{ if(pdfO) pdfO.destroy(); }catch(e){}
+    }
+  }
+  return {texto:pags.join("\n\n"), paginas:pdf.numPages, ocr_paginas:ocrFeitas, ocr_puladas:ocrPuladas};
 }
 async function textoDOCX(buf){
   await scriptCDN("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
@@ -551,13 +631,17 @@ async function textoDOCX(buf){
 function resetAnexoCampos(){
   if([...AUTO].some(k=>k.startsWith("protecao_epi[")))
     document.querySelectorAll("#lst_epis .row-dyn").forEach(r=>{ if(r.querySelector("input.autofill")) r.remove(); });
-  [...AUTO,...AUTO_DER].forEach(id=>{
+  ["reclamante","reclamada","reclamada2"].forEach(p=>{
+    if([...AUTO].some(k=>k.startsWith(`quesitos_${p}[`)))
+      document.querySelectorAll(`#lst_quesitos_${p} .row-dyn`).forEach(r=>{ if(r.querySelector(".autofill")) r.remove(); });
+  });
+  [...AUTO,...AUTO_DER,...Object.keys(AUTO_ORIG)].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     if(id==="meta_n_reclamadas"){ el.value="1"; mudaReclamadas(); }
     else el.value="";
     el.classList.remove("autofill");
   });
-  AUTO.clear(); AUTO_DER.clear();
+  AUTO.clear(); AUTO_DER.clear(); AUTO_ORIG={};
 }
 async function anexarProcesso(ev){
   const f=ev.target.files[0]; ev.target.value=""; if(!f) return;
@@ -565,7 +649,7 @@ async function anexarProcesso(ev){
   ANEXO_FILE=f;
   const ext=(f.name.split(".").pop()||"").toLowerCase();
   ANEXO={nome:f.name,tamanho:f.size,tipo:ext,paginas:null,
-    extraido_em:new Date().toISOString().slice(0,10),truncado:false,texto:""};
+    extraido_em:new Date().toISOString().slice(0,10),truncado:false,texto:"",ocr_paginas:0};
   if(ext==="doc"){
     setAnexoMsg(`⚠ ${f.name}: .doc antigo — não leio aqui. Anexo registrado; mande o arquivo junto com o JSON que a extração é feita na montagem do laudo.`,"aviso");
     salvar(); return;
@@ -573,18 +657,19 @@ async function anexarProcesso(ev){
   try{
     const buf=await f.arrayBuffer();
     const r = ext==="pdf" ? await textoPDF(buf) : await textoDOCX(buf);
-    ANEXO.paginas=r.paginas;
+    ANEXO.paginas=r.paginas; ANEXO.ocr_paginas=r.ocr_paginas||0;
     const completo=r.texto||"";           // a extração lê o processo inteiro
+    ANEXO_TEXTO_FULL=completo;            // e o exportar leva o texto inteiro no registro
     let t=completo;
     if(t.length>ANEXO_CAP){ t=t.slice(0,ANEXO_CAP); ANEXO.truncado=true; }
     ANEXO.texto=t;                        // persistido: capado p/ caber no localStorage
     if(completo.replace(/\s/g,"").length<200){
       ANEXO.texto="";
-      setAnexoMsg(`⚠ ${f.name}: sem camada de texto (escaneado?). Nada extraído — anexo registrado; mande o arquivo junto com o JSON que a extração é feita por OCR na montagem do laudo.`,"aviso");
+      setAnexoMsg(`⚠ ${f.name}: sem camada de texto (escaneado?) e o OCR não deu resultado (precisa de internet). Nada extraído — anexo registrado; mande o arquivo junto com o JSON que a extração é feita na montagem do laudo.`,"aviso");
       salvar(); return;
     }
     const feitos=autoPreencher(completo);
-    setAnexoMsg(`✓ ${f.name} lido${ANEXO.paginas?` (${ANEXO.paginas} pág.)`:""}${ANEXO.truncado?" · texto truncado no limite":""} — `+
+    setAnexoMsg(`✓ ${f.name} lido${ANEXO.paginas?` (${ANEXO.paginas} pág.)`:""}${ANEXO.ocr_paginas?` · OCR em ${ANEXO.ocr_paginas} página(s) em foto — texto de OCR sempre se confere`:""}${r.ocr_puladas?` · ⚠ ${r.ocr_puladas} página(s) em foto além do limite ficaram sem OCR`:""}${ANEXO.truncado?" · texto truncado no limite":""} — `+
       (feitos.length?`preenchi: ${feitos.join(", ")}. Confira os campos em amarelo.`
                     :"nenhum campo vazio para preencher (campo já preenchido não é tocado).")+
       " ⚠ Antes de sair para a vistoria, clique em Exportar — é por esse arquivo que o celular carrega tudo pelo Importar.","ok");
@@ -594,6 +679,31 @@ async function anexarProcesso(ev){
   }
   salvar();
 }
+// documento de apoio do escritório: laudo pré-formatado deste caso. NÃO preenche campo —
+// vai no registro para a montagem conferir os campos extraídos do processo contra ele
+async function anexarReferencia(ev){
+  const f=ev.target.files[0]; ev.target.value=""; if(!f) return;
+  ANEXO_REF_FILE=f;
+  const ext=(f.name.split(".").pop()||"").toLowerCase();
+  ANEXO_REF={nome:f.name,tamanho:f.size,tipo:ext,
+    extraido_em:new Date().toISOString().slice(0,10),truncado:false,texto:""};
+  if(ext==="doc"){
+    setRefMsg(`⚠ ${f.name}: .doc antigo — não leio aqui. Registrado; mande o arquivo junto com o JSON.`,"aviso");
+    salvar(); return;
+  }
+  try{
+    const r=await textoDOCX(await f.arrayBuffer());
+    let t=r.texto||"";
+    if(t.length>REF_CAP){ t=t.slice(0,REF_CAP); ANEXO_REF.truncado=true; }
+    ANEXO_REF.texto=t;
+    setRefMsg(`✓ ${f.name} lido — vai junto no Exportar, para conferência na montagem (não preenche campos).`,"ok");
+  }catch(e){
+    ANEXO_REF.texto="";
+    setRefMsg(`⚠ não consegui ler (${e.message}). Registrado só por nome; mande o arquivo junto com o JSON.`,"erro");
+  }
+  salvar();
+}
+function removerReferencia(){ ANEXO_REF=null; ANEXO_REF_FILE=null; setRefMsg(""); salvar(); }
 function limpaNome(s){ return (s||"").replace(/\s+/g," ")
   .replace(/[,;.]?\s*(?:CPF|CNPJ|RG|CTPS)\b[\s\S]*$/i,"")
   .replace(/\s*\(\s*em\s+recupera[çc][ãa]o[\s\S]*$/i,"")
@@ -656,6 +766,63 @@ function poe(id,valor,rotulo,feitos){
   if(!el||!valor||el.value) return;
   el.value=valor; AUTO.add(id); el.classList.add("autofill"); feitos.push(rotulo);
 }
+// campo derivado (não extraído): amarelo com origem própria "derivado:<regra>" no export
+function poeDerivado(id,valor,origem,rotulo,feitos){
+  const el=document.getElementById(id);
+  if(!el||!valor||el.value) return false;
+  el.value=valor; AUTO_ORIG[id]=origem; el.classList.add("autofill");
+  if(feitos) feitos.push(rotulo);
+  return true;
+}
+// cidade do laudo = cidade do local da vistoria (regra do perito). 1ª fonte: o próprio
+// endereço vistoriado ("… Mauá - SP" / "…/SP" / último trecho sem dígito antes do CEP);
+// fallback: a comarca, sem a UF
+function cidadeDoEndereco(end){
+  end=sq(end||""); if(!end) return "";
+  let m=end.match(/([A-ZÀ-Ü][A-Za-zÀ-ü'. ]{2,40}?)\s*[\/\-–]\s*[A-Z]{2}(?![A-Za-zà-ü])/);
+  if(m) return sq(m[1]);
+  const antesCep=end.split(/CEP/i)[0];
+  const partes=antesCep.split(",").map(sq).filter(Boolean);
+  for(let i=partes.length-1;i>=0;i--)
+    if(!/\d/.test(partes[i]) && /^[A-ZÀ-Ü]/.test(partes[i]) && partes[i].length<=40
+       && !/^[A-Z]{2}\.?$/.test(partes[i]))   // "SP" solto é a UF, não a cidade
+      return partes[i];
+  return "";
+}
+function derivaCidadeLaudo(feitos){
+  const el=document.getElementById("processo_cidade");
+  if(!el||el.value) return;
+  const doEnd=cidadeDoEndereco(document.getElementById("reclamada_endereco").value);
+  if(doEnd){ poeDerivado("processo_cidade", doEnd, "derivado:endereco-vistoria",
+    "cidade do laudo (do endereço vistoriado — conferir)", feitos); salvar(); return; }
+  const comarca=sq((document.getElementById("processo_comarca_uf").value||"")
+    .replace(/\s*[\/\-–]\s*[A-Z]{2}\.?\s*$/,"").replace(/\s*[–\-]\s*SP\s*$/,""));
+  if(comarca){ poeDerivado("processo_cidade", comarca, "derivado:comarca",
+    "cidade do laudo (da comarca — conferir)", feitos); salvar(); }
+}
+// atividade principal deduzida do CNAE — consulta online (IBGE); sem internet, fica como está
+async function atividadePorCNAE(feitosMsg){
+  const alvo=document.getElementById("reclamada_atividade");
+  const cnae=(document.getElementById("reclamada_cnae").value||"").replace(/\D/g,"");
+  if(!alvo||alvo.value) return;
+  let url="";
+  if(cnae.length===7) url="https://servicodados.ibge.gov.br/api/v2/cnae/subclasses/"+cnae;
+  else if(cnae.length===5) url="https://servicodados.ibge.gov.br/api/v2/cnae/classes/"+cnae;
+  else return;
+  try{
+    const resp=await fetch(url); if(!resp.ok) return;
+    const j=await resp.json();
+    const o=Array.isArray(j)?j[0]:j;
+    let desc=o&&o.descricao?sq(String(o.descricao)):"";
+    if(!desc) return;
+    desc=desc.charAt(0).toUpperCase()+desc.slice(1).toLowerCase();
+    if(poeDerivado("reclamada_atividade", desc, "derivado:cnae", "", null)){
+      if(feitosMsg!==false) setAnexoMsg(document.getElementById("v_anexo").textContent+
+        " · atividade principal preenchida pelo CNAE (IBGE) — conferir.","ok");
+      salvar();
+    }
+  }catch(e){ /* offline: silêncio */ }
+}
 // categoria e gênero — SÓ da ATA de audiência (nunca do corpo da inicial: caso Lilian,
 // inicial montada por cópia com gênero/função de outra pessoa)
 function extrairAtaMeta(t, feitos){
@@ -715,12 +882,17 @@ function autoPreencher(t){
   const MESES={janeiro:1,fevereiro:2,"março":3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12};
   const nomeTk=(document.getElementById("processo_reclamante").value||"").trim().split(/\s+/);
   const pn=nomeTk[0]||"";
+  // âncora SEM acento: a capa grafa "JOSE" e a inicial "JOSÉ" (caso 1000869 — o RG da
+  // qualificação se perdia). tN é cópia 1:1 do texto com o acento removido, índice a
+  // índice, para casar a âncora; a zona é recortada do texto ORIGINAL (nada se altera).
+  const semAcento=s=>s.replace(/[À-ÿ]/g,c=>(c.normalize("NFD")[0]||c));
+  const tN=semAcento(t);
   const zonas=[];
   const abreZonas=anc=>{
-    for(const x of t.matchAll(new RegExp("\\b"+anc+"\\b","gi"))){
+    for(const x of tN.matchAll(new RegExp("\\b"+semAcento(anc)+"\\b","gi"))){
       // "RECLAMANTE: NOME" de cabeçalho de certidão/mandado abre zona que emenda no corpo
       // do documento (CPF do gerente predial veio daí) — cabeçalho não é qualificação
-      if(/(?:RECLAMANTES?|DESTINAT[ÁA]RIOS?|RECLAMAD[OA]S?|R[ÉE]U)\s*[:\-]\s*$/i.test(t.slice(Math.max(0,x.index-30), x.index))) continue;
+      if(/(?:RECLAMANTES?|DESTINAT[ÁA]RIOS?|RECLAMAD[OA]S?|R[ÉE]U)\s*[:\-]\s*$/i.test(tN.slice(Math.max(0,x.index-30), x.index))) continue;
       zonas.push(juntaLin(t.slice(x.index, x.index+900))); if(zonas.length>=40) break;
     }};
   // âncora = 2 primeiros nomes (1º nome sozinho abre zona de homônimo — 4 "Guilhermes"
@@ -866,6 +1038,9 @@ function autoPreencher(t){
   if(m) poe("reclamada_cnae", juntaDig(m[1]).replace(/[^\d.\-\/]/g,"").replace(/\D+$/,""), "CNAE (dos autos — conferir)", feitos);
   m=t.match(new RegExp(fz("Grau de risco")+"\\s*:?\\s*0?\\s*([1-4])","i"));
   if(m) poe("reclamada_grau_risco", m[1], "grau de risco (dos autos — conferir)", feitos);
+  // CNAE veio mas a atividade não: deduz pela tabela do IBGE (online, assíncrono)
+  if(document.getElementById("reclamada_cnae").value && !document.getElementById("reclamada_atividade").value)
+    atividadePorCNAE();
   // EPIs com C.A. listados nos autos (fichas de entrega, laudos juntados)
   const lstEpis=document.getElementById("lst_epis");
   if(lstEpis && !lstEpis.querySelector(".row-dyn")){
@@ -894,11 +1069,12 @@ function autoPreencher(t){
       feitos.push("vara/comarca (derivadas do nº CNJ — confirmar com o perito)");
     }
   }
+  derivaCidadeLaudo(feitos);   // cidade do laudo = cidade do local da vistoria
   checaDatas();
   return feitos;
 }
 function extrairQuesitos(t, feitos, advs){
-  // rols de quesitos do texto do processo → caixas de colagem da seção 14
+  // rols de quesitos do texto do processo → caixas de colagem das seções 14/15
   // o texto colado é LITERAL (só sem os carimbos de página do PJe): pergunta não se reescreve
   const cnjProc=(document.getElementById("processo_numero_cnj").value||"").trim();
   // menções a nº CNJ ao longo dos autos: peça precedida por CNJ de OUTRO processo
@@ -908,7 +1084,10 @@ function extrairQuesitos(t, feitos, advs){
   const cnjAntes=pos=>{ let u=null; for(const c of cnjs){ if(c.i>=pos) break; u=c; } return u; };
   // item de rol: numerado (1. / 1) / 1 -) OU com marcador de lista (inclusive o bullet
   //  que o pdf.js devolve para Wingdings)
-  const reItem=/(?:^|\n)[^\S\n]{0,30}(?:\d[^\S\n]?\d?[^\S\n]*[).:\-–]|[•▪◦‣•▪●])[^\S\n]*\S/g;
+  // …ou com numeração ILEGÍVEL: fonte quebrada do PDF mapeia dígitos para glifos fora do
+  // Latin (caso Taminco: "ͯ .", "Ͱ ." — os 50 quesitos da reclamada se perdiam); letra
+  // acentuada normal (À–ɏ) fica fora da classe
+  const reItem=/(?:^|\n)[^\S\n]{0,30}(?:\d[^\S\n]?\d?[^\S\n]*[).:\-–]|[^\x00-\x7F\sÀ-ɏ]{1,2}[^\S\n]{0,2}\.(?=[^\S\n])|[•▪◦‣•▪●])[^\S\n]*\S/g;
   // passo 1: candidatos a título de rol — linha toda em maiúsculas contendo QUESITOS,
   // ou linha curta começando por "Quesitos da/do…" (caixa mista)
   const cand=[]; let mm; const re=/QUESITOS?/gi;
@@ -1010,10 +1189,61 @@ function extrairQuesitos(t, feitos, advs){
     el.value=meus.map(b=>b.texto).join("\n\n----------\n\n");
     AUTO.add("quesitos_colados_"+parte); el.classList.add("autofill");
     feitos.push(`quesitos (${rotulo[parte]}, ${meus.length} bloco${meus.length>1?"s":""} — conferir autoria)`);
+    segmentaQuesitos(parte, true);      // uma box por pergunta, para o perito visualizar
   }
 }
+// colagem → uma box por pergunta (numeração literal dos autos). Porta LEVE da camada 2:
+// a segmentação de autoridade continua sendo o segmentador_quesitos.py, na montagem —
+// aqui é visualização e conferência do perito. Pergunta não se reescreve.
+function segmentaQuesitos(parte, autoAnexo){
+  const el=document.getElementById("quesitos_colados_"+parte);
+  const lst=document.getElementById("lst_quesitos_"+parte);
+  if(!el||!lst) return;
+  const txt=(el.value||"").trim();
+  if(!txt){ if(!autoAnexo) alert("Cole primeiro o texto corrido dos quesitos."); return; }
+  if(lst.querySelector(".row-dyn")){
+    if(autoAnexo) return;               // nunca sobrescreve box existente em silêncio
+    if(!confirm("Já existem perguntas separadas nesta seção. Substituir todas pelo texto da colagem?")) return;
+    lst.innerHTML="";
+    [...AUTO].forEach(k=>{ if(k.startsWith(`quesitos_${parte}[`)) AUTO.delete(k); });
+  }
+  const itens=[]; let grupo="", atual=null;
+  // além de "1." / "1)" / bullet: numeração ilegível (fonte quebrada — glifo fora do
+  // Latin + "."), que vira box com nº vazio; nunca se inventa o número
+  const reIni=/^(?:(\d{1,3})[^\S\n]{0,2}[).:\-–]|[•▪◦‣●]|[^\x00-\x7F\sÀ-ɏ]{1,2}[^\S\n]{0,2}\.(?=[^\S\n]))[^\S\n]*(\S.*)$/;
+  const reSub=/^([a-z])[^\S\n]?\)[^\S\n]*(\S.*)$/;
+  for(const lnRaw of txt.split("\n")){
+    const s=lnRaw.trim();
+    if(!s || /^-{4,}$/.test(s)) continue;                        // vazio / separador de blocos
+    if(/^(?:Termos em que|Nestes termos|Pede[\s\-]*deferimento|P\.\s*deferimento)/i.test(s)){ atual=null; continue; }
+    let m=s.match(reIni);
+    if(m){ atual={numero:m[1]||"", grupo, pergunta:m[2]}; itens.push(atual); continue; }
+    m=s.match(reSub);
+    if(m && atual && atual.resposta===undefined){ atual.pergunta+="\n"+s; continue; }  // subitem: mesma box
+    m=s.match(/^R(?:esposta)?[^\S\n]*\.?[^\S\n]*:[^\S\n]*(.*)$/i);
+    if(m && atual){ atual.resposta=(atual.resposta?atual.resposta+" ":"")+(m[1]||""); continue; }
+    const caixaAlta=s.length>=4 && s.length<=60 && !/[a-zà-üç]/.test(s);
+    if(caixaAlta){
+      if(/QUESITOS?/i.test(s)){ grupo=""; atual=null; continue; }   // título de rol: zera o grupo
+      if(!/\d/.test(s)){ grupo=s; atual=null; continue; }           // "DA INSALUBRIDADE", "GERAIS"…
+      atual=null; continue;
+    }
+    if(atual){ if(atual.resposta!==undefined) atual.resposta+=" "+s; else atual.pergunta+=" "+s; }
+  }
+  if(!itens.length){ if(!autoAnexo) alert("Não encontrei perguntas numeradas na colagem — confira o texto."); return; }
+  const base=lst.querySelectorAll(".row-dyn").length;
+  itens.forEach((q,i)=>{
+    addRow("quesitos_"+parte, {numero:q.numero, grupo:q.grupo, pergunta:q.pergunta.split("\n").map(sq).join("\n"), resposta:q.resposta?sq(q.resposta):""});
+    if(autoAnexo){
+      AUTO.add(`quesitos_${parte}[${base+i+1}]_numero_autos`);
+      AUTO.add(`quesitos_${parte}[${base+i+1}]_pergunta`);
+    }
+  });
+  if(autoAnexo) lst.querySelectorAll("input,textarea").forEach(x=>{ if(x.dataset.k!=="resposta"&&x.value) x.classList.add("autofill"); });
+  salvar();
+}
 function removerAnexo(){
-  ANEXO=null; ANEXO_FILE=null; AUTO.clear(); AUTO_DER.clear();
+  ANEXO=null; ANEXO_FILE=null; ANEXO_TEXTO_FULL=null; AUTO.clear(); AUTO_DER.clear(); AUTO_ORIG={};
   document.querySelectorAll(".autofill").forEach(e=>e.classList.remove("autofill"));
   setAnexoMsg(""); salvar();
 }
@@ -1084,6 +1314,8 @@ function coletar(){
     });
   }
   dados.anexo = ANEXO ? Object.assign({}, ANEXO, {auto:[...AUTO], auto_der:[...AUTO_DER]}) : null;
+  dados.anexo_ref = ANEXO_REF ? Object.assign({}, ANEXO_REF) : null;
+  dados.auto_orig = Object.keys(AUTO_ORIG).length ? Object.assign({}, AUTO_ORIG) : null;
   return dados;
 }
 function aplicar(dados){
@@ -1099,12 +1331,18 @@ function aplicar(dados){
   if(dados.anexo){
     ANEXO=Object.assign({},dados.anexo); delete ANEXO.auto; delete ANEXO.auto_der;
     ANEXO_FILE=null;                     // File não sobrevive ao localStorage
+    ANEXO_TEXTO_FULL=null;               // texto inteiro tampouco — sobra o capado
     AUTO=new Set(dados.anexo.auto||[]); AUTO_DER=new Set(dados.anexo.auto_der||[]);
   } else { ANEXO=null; ANEXO_FILE=null; AUTO=new Set(); AUTO_DER=new Set(); }
+  if(dados.anexo_ref){ ANEXO_REF=Object.assign({},dados.anexo_ref); ANEXO_REF_FILE=null; }
+  else { ANEXO_REF=null; ANEXO_REF_FILE=null; }
+  AUTO_ORIG=Object.assign({}, dados.auto_orig||{});
   document.querySelectorAll(".autofill").forEach(e=>e.classList.remove("autofill"));
-  [...AUTO,...AUTO_DER].forEach(id=>{ const el=document.getElementById(id); if(el&&el.value) el.classList.add("autofill"); });
+  [...AUTO,...AUTO_DER,...Object.keys(AUTO_ORIG)].forEach(id=>{ const el=document.getElementById(id); if(el&&el.value) el.classList.add("autofill"); });
   if(ANEXO) setAnexoMsg(`anexo: ${ANEXO.nome}${ANEXO.paginas?` (${ANEXO.paginas} pág.)`:""}${ANEXO.texto?"":" — sem texto extraído"}`,"ok");
   else setAnexoMsg("");
+  if(ANEXO_REF) setRefMsg(`documento de apoio: ${ANEXO_REF.nome}${ANEXO_REF.texto?"":" — sem texto extraído"}`,"ok");
+  else setRefMsg("");
   validaCNJ(); mudaInstrumento(); mudaConclusao(); mudaReclamadas(); checaDatas(); checaHoras(); pendencias();
   document.querySelectorAll('#lst_ruido .row-dyn').forEach(r=>{
     const i=r.querySelector('[data-k="nivel"]'), f=r.querySelector(".valida");
@@ -1140,7 +1378,7 @@ function temDados(){
 }
 function limpar(){
   // escolha sempre oferecida: exportar antes, ou só limpar (pedido do Yoran, 18/08)
-  if(temDados() && confirm("Exportar esta vistoria antes de limpar?\n\nOK = Exportar (nada é apagado — clique em Limpar de novo depois)\nCancelar = seguir para limpar sem exportar")){ exportar(); return; }
+  if(temDados() && confirm("Exportar esta vistoria antes de limpar?\n\nOK = Exportar (a vistoria fica guardada na tela Vistorias e o formulário abre em branco)\nCancelar = seguir para limpar sem exportar")){ exportar(); return; }
   let aviso="Apagar tudo que foi preenchido NESTA vistoria? (as outras vistorias do aparelho não são afetadas)";
   try{
     const exp=+(localStorage.getItem(LS+"_export")||0), ed=+(localStorage.getItem(LS+"_edit")||0);
@@ -1150,13 +1388,13 @@ function limpar(){
   // trava o auto-salvamento: o debounce de salvar() dispararia DEPOIS do removeItem
   // e regravaria tudo (inclusive o anexo) antes de o reload acontecer.
   LIMPANDO=true; salvarPendente=false; clearTimeout(tSalvar);
-  ANEXO=null; ANEXO_FILE=null; AUTO.clear(); AUTO_DER.clear();
+  ANEXO=null; ANEXO_FILE=null; ANEXO_TEXTO_FULL=null; ANEXO_REF=null; ANEXO_REF_FILE=null; AUTO.clear(); AUTO_DER.clear(); AUTO_ORIG={};
   ["","_edit","_export"].forEach(s=>{ try{ localStorage.removeItem(LS+s); }catch(e){} });
   location.reload();
 }
 
 /* =============================== pendências ============================== */
-const OBRIG = [["meta_categoria","categoria da perícia"],["meta_metodologia","leva METODOLOGIA?"],
+const OBRIG = [["meta_categoria","categoria da perícia"],
  ["meta_genero","gênero"],["processo_numero_cnj","nº do processo"],["processo_vara","vara"],
  ["processo_comarca_uf","comarca/UF"],["processo_reclamante","reclamante"],["processo_reclamada","reclamada"],
  ["vinculo_admissao","data de admissão"],["vinculo_funcao","função"],["vinculo_jornada","jornada"],
@@ -1250,7 +1488,15 @@ async function gravarNaPasta(nome, conteudo){
       await wa.write(ANEXO_FILE); await wa.close(); anexo=alvo;
     }catch(e){}
   }
-  return {existia, anexo};
+  let referencia=null;                  // o documento de apoio do escritório também
+  if(ANEXO_REF_FILE && ANEXO_REF){
+    const alvo = nome.replace(/_vistoria\.json$/,"") + "_referencia." + (ANEXO_REF.tipo||"docx");
+    try{
+      const wr = await (await DIR.getFileHandle(alvo,{create:true})).createWritable();
+      await wr.write(ANEXO_REF_FILE); await wr.close(); referencia=alvo;
+    }catch(e){}
+  }
+  return {existia, anexo, referencia};
 }
 
 /* ================================ exportar =============================== */
@@ -1366,7 +1612,8 @@ function exportar(){
     const mq=x.campo.match(/^quesitos\.(reclamante|reclamada2?)\.texto_colado$/);
     if(mq) id="quesitos_colados_"+mq[1];
     if(AUTO.has(id)){ x.origem="documento:processo-anexo"; x.status="aguardando_perito"; }
-    else if(AUTO_DER.has(id)){ x.origem="derivado:cnj-origem"; x.status="aguardando_perito"; } });
+    else if(AUTO_DER.has(id)){ x.origem="derivado:cnj-origem"; x.status="aguardando_perito"; }
+    else if(AUTO_ORIG[id]){ x.origem=AUTO_ORIG[id]; x.status="aguardando_perito"; } });
 
   // ditado_txt — tudo em texto rotulado, insumo do verificar_fidelidade
   const linhas = [`DITADO — vistoria de ${g("vistoria_data")||"[data]"} — categoria: ${cat}`,""];
@@ -1376,20 +1623,37 @@ function exportar(){
   // backup_formulario = estado bruto do formulário, para reimportar em qualquer aparelho
   // anexo: texto extraído vai uma vez só (fora do backup, para não duplicar)
   const dBackup = Object.assign({}, d,
-    {anexo: d.anexo ? Object.assign({}, d.anexo, {texto:""}) : null});
+    {anexo: d.anexo ? Object.assign({}, d.anexo, {texto:""}) : null,
+     anexo_ref: d.anexo_ref ? Object.assign({}, d.anexo_ref, {texto:""}) : null});
   const registro = {meta:{arquivo_docx:null,categoria:cat,
-      metodologia:g("meta_metodologia")==="sim", genero_reclamante:g("meta_genero")||null,
+      metodologia:true,                     // decisão de 18/08: METODOLOGIA sempre entra (o campo saiu do formulário na v5.8)
+      genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.7-2026-08-18"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.8-2026-08-26"},
     campos:c, ditado_txt:linhas.join("\n"),
-    anexo_processo: ANEXO ? {nome:ANEXO.nome, tamanho_bytes:ANEXO.tamanho, tipo:ANEXO.tipo,
-      paginas:ANEXO.paginas, extraido_em:ANEXO.extraido_em, truncado:ANEXO.truncado,
+    anexo_processo: ANEXO ? (()=>{
+      // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
+      // do localStorage); depois de recarregar a página sobra o capado, e truncado avisa
+      const tFull=(ANEXO_TEXTO_FULL&&ANEXO_TEXTO_FULL.length>(ANEXO.texto||"").length)?ANEXO_TEXTO_FULL:ANEXO.texto;
+      return {nome:ANEXO.nome, tamanho_bytes:ANEXO.tamanho, tipo:ANEXO.tipo,
+      paginas:ANEXO.paginas, extraido_em:ANEXO.extraido_em,
+      truncado:(tFull===ANEXO_TEXTO_FULL&&ANEXO_TEXTO_FULL)?false:ANEXO.truncado,
+      ocr_paginas:ANEXO.ocr_paginas||0,     // páginas em foto lidas por OCR no navegador — texto a conferir
       divergencias:ANEXO.divergencias||[],   // valores que divergem entre peças — registram-se, não se arbitram
-      texto_extraido:ANEXO.texto||null} : null,
+      texto_extraido:tFull||null}; })() : null,
+    anexo_referencia: ANEXO_REF ? {nome:ANEXO_REF.nome, tamanho_bytes:ANEXO_REF.tamanho,
+      tipo:ANEXO_REF.tipo, extraido_em:ANEXO_REF.extraido_em, truncado:ANEXO_REF.truncado,
+      texto_extraido:ANEXO_REF.texto||null} : null,   // gabarito do escritório — só conferência na montagem
     backup_formulario:dBackup};
 
   try{ localStorage.setItem(LS+"_export", String(Date.now())); }catch(e){}
   entregar(nomeArquivo(g,hoje), JSON.stringify(registro,null,2));
+}
+// exportou = terminou esta vistoria: o formulário abre uma nova em branco (pedido do Yoran,
+// 26/08). A exportada FICA na tela "Vistorias", com o carimbo de exportação — nada se perde.
+function posExportar(){
+  if(!IDX) return;
+  novaVistoria();
 }
 async function entregar(nome, conteudo){
   // pasta escolhida → grava direto; senão compartilhar (iPhone) → baixar → copiar
@@ -1400,7 +1664,10 @@ async function entregar(nome, conteudo){
         alert(`Gravado em ${DIR.name}:\n${nome}`
           + (r.existia ? "\n(substituiu o arquivo anterior de mesmo nome)" : "")
           + (r.anexo ? `\n${r.anexo} — arquivo do processo gravado junto` : "")
-          + (ANEXO && !ANEXO_FILE ? "\n\n⚠ o arquivo do processo não foi junto: a página foi recarregada desde o anexo. Reanexe antes de exportar se a montagem precisar do original." : ""));
+          + (r.referencia ? `\n${r.referencia} — documento de apoio gravado junto` : "")
+          + (ANEXO && !ANEXO_FILE ? "\n\n⚠ a página foi recarregada desde o anexo: o arquivo do processo não foi junto e o texto exportado ficou no limite de 600 mil caracteres. Reanexe e exporte de novo se a montagem precisar do original ou do texto completo." : "")
+          + "\n\nO formulário vai abrir uma vistoria nova em branco — esta fica guardada na tela Vistorias.");
+        posExportar();
         return;
       }
     }catch(e){ alert("Não consegui gravar na pasta ("+e.message+"). Vou baixar o arquivo."); }
@@ -1408,7 +1675,7 @@ async function entregar(nome, conteudo){
   try{
     const f = new File([conteudo], nome, {type:"application/json"});
     if(navigator.canShare && navigator.canShare({files:[f]})){
-      navigator.share({files:[f], title:nome}).catch(()=>baixarOuCopiar(nome, conteudo));
+      navigator.share({files:[f], title:nome}).then(()=>posExportar()).catch(()=>baixarOuCopiar(nome, conteudo));
       return;
     }
   }catch(e){}
@@ -1420,9 +1687,9 @@ function baixarOuCopiar(nome, conteudo){
     a.href=URL.createObjectURL(new Blob([conteudo],{type:"application/json;charset=utf-8"}));
     a.download=nome; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-    alert("Arquivo exportado: "+nome+"\nSalve no OneDrive, em Laudos → Troca → 1. Enviar — de lá ele chega ao desktop sozinho.\n\nSe o download não apareceu, use a tela de cópia que vai abrir.");
-    setTimeout(()=>{ /* sem como detectar download bloqueado; oferecer cópia sob demanda */ },0);
-  }catch(e){ modalCopia(nome, conteudo); }
+    alert("Arquivo exportado: "+nome+"\nSalve no OneDrive, em Laudos → Troca → 1. Enviar — de lá ele chega ao desktop sozinho.\n\nO formulário vai abrir uma vistoria nova em branco — esta fica guardada na tela Vistorias.");
+    posExportar();
+  }catch(e){ modalCopia(nome, conteudo); }   // na tela de cópia o formulário NÃO limpa (o perito ainda vai copiar)
 }
 function modalCopia(nome, conteudo){
   let m=document.getElementById("modalCopia");
@@ -1463,7 +1730,7 @@ function registroParaBackup(j){
   });
   const me=j.meta||{};
   if(me.categoria && me.categoria!=="[não definida]") d.campos.meta_categoria=me.categoria;
-  if("metodologia" in me) d.campos.meta_metodologia=me.metodologia?"sim":"nao";
+  // meta.metodologia de registro antigo é ignorada: desde a v5.8 é sempre true (decisão de 18/08)
   if(me.genero_reclamante) d.campos.meta_genero=me.genero_reclamante;
   if(me.n_reclamadas) d.campos.meta_n_reclamadas=String(me.n_reclamadas);
   return d;
@@ -1478,7 +1745,14 @@ function importar(ev){
       else if(Array.isArray(j.campos)){ aplicar(registroParaBackup(j));
         alert("Registro antigo importado pelo mapa reverso — confira os campos antes de seguir."); }
       else alert("Formato não reconhecido. Importe um *_vistoria.json exportado por este formulário.");
-      if(j.anexo_processo && ANEXO && !ANEXO.texto) ANEXO.texto=j.anexo_processo.texto_extraido||"";
+      if(j.anexo_processo && ANEXO && !ANEXO.texto){
+        const tx=j.anexo_processo.texto_extraido||"";
+        ANEXO_TEXTO_FULL=tx||null;                 // inteiro em memória para reexportar
+        ANEXO.texto=tx.slice(0,ANEXO_CAP);         // persistido continua capado
+        if(tx.length>ANEXO_CAP) ANEXO.truncado=true;
+      }
+      if(j.anexo_referencia && ANEXO_REF && !ANEXO_REF.texto){ ANEXO_REF.texto=j.anexo_referencia.texto_extraido||"";
+        if(ANEXO_REF.texto) setRefMsg(`documento de apoio: ${ANEXO_REF.nome}`,"ok"); }
       salvar();
     }catch(e){ alert("Não consegui ler o arquivo: "+e.message); } };
   r.readAsText(f);
@@ -1493,16 +1767,17 @@ document.getElementById("processo_numero_cnj").addEventListener("blur", ()=>{val
 ["vistoria_hora_inicio","vistoria_hora_termino"].forEach(id=>document.getElementById(id).addEventListener("change", checaHoras));
 function aoEditar(ev){
   const id=ev.target && ev.target.id;
-  if(id && (AUTO.has(id)||AUTO_DER.has(id))){   // mexeu no campo = conferiu
-    AUTO.delete(id); AUTO_DER.delete(id); ev.target.classList.remove("autofill");
+  if(id && (AUTO.has(id)||AUTO_DER.has(id)||AUTO_ORIG[id])){   // mexeu no campo = conferiu
+    AUTO.delete(id); AUTO_DER.delete(id); delete AUTO_ORIG[id]; ev.target.classList.remove("autofill");
   }
   salvar();
 }
 document.getElementById("form").addEventListener("input", aoEditar);
 document.getElementById("form").addEventListener("change", aoEditar);
 try{ const s=localStorage.getItem(LS); if(s) aplicar(JSON.parse(s)); }catch(e){}
-// padrão decidido em 18/08: METODOLOGIA por default é SIM (a numeração base vale sempre)
-if(!document.getElementById("meta_metodologia").value) document.getElementById("meta_metodologia").value="sim";
+// CNAE digitado à mão também deduz a atividade (online, IBGE); endereço digitado deriva a cidade do laudo
+document.getElementById("reclamada_cnae").addEventListener("change", ()=>atividadePorCNAE(false));
+document.getElementById("reclamada_endereco").addEventListener("change", ()=>derivaCidadeLaudo());
 if(!document.querySelector("#lst_cicerones .row-dyn")) addRow("cicerones");
 if(!document.querySelector("#lst_epis .row-dyn")) addRow("epis");
 mudaReclamadas();
