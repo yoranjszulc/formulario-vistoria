@@ -57,6 +57,12 @@
   #menuSecoes{position:fixed;top:0;right:0;bottom:0;width:min(78vw,300px);background:#fff;z-index:21;overflow:auto;padding:.5rem .6rem;box-shadow:-2px 0 8px rgba(0,0,0,.25)}
   #menuSecoes a{display:block;padding:.6rem .4rem;border-bottom:1px solid var(--borda);color:var(--azul);text-decoration:none;font-size:.9rem}
   #telaRascunhos{position:fixed;inset:0;background:var(--cinza);z-index:22;overflow:auto;padding:.8rem .8rem 3rem}
+  .fotoswrap{margin-top:.8rem;border-top:1px dashed var(--borda);padding-top:.5rem}
+  .fgrid{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0}
+  .fthumb{position:relative;width:86px;height:86px;border:1px solid var(--borda);border-radius:6px;overflow:hidden;background:#eee}
+  .fthumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .fthumb .rm{position:absolute;top:2px;right:2px;border:none;background:rgba(255,255,255,.9);border-radius:4px;cursor:pointer;font-size:.85rem;line-height:1;padding:.15rem .4rem}
+  .fnum{color:var(--ok);font-weight:normal;font-size:.78rem}
 </style>
 </head>
 <body>
@@ -64,7 +70,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v5.8 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v5.9 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -200,11 +206,13 @@
   <label style="margin-top:.8rem">Outros setores/locais vistoriados</label>
   <div id="lst_locais"></div>
   <button class="add" type="button" onclick="addRow('locais')">+ setor/local</button>
+  <div class="fotoswrap" data-fsec="local" data-frotulo="Fotos do local — vista geral da área"></div>
 </div></details>
 
 <details id="sec-atividades"><summary>7. Atividades <span class="falta"></span></summary><div class="corpo">
   <label>O que a pessoa fazia, onde, com que frequência — texto livre (pode ditar pelo microfone do teclado) <b class="req">*</b></label>
   <textarea class="grande" id="atividades_texto"></textarea>
+  <div class="fotoswrap" data-fsec="atividades" data-frotulo="Fotos das atividades, máquinas e equipamentos"></div>
 </div></details>
 
 <details id="sec-protecao"><summary>8. Proteção — EPC e EPI <span class="falta"></span></summary><div class="corpo">
@@ -243,17 +251,20 @@
     <label>Leituras (local, nível, período)</label>
     <div id="lst_ruido"></div>
     <button class="add" type="button" onclick="addRow('ruido')">+ leitura</button>
+    <div class="fotoswrap" data-fsec="instrumento" data-frotulo="Foto do leitor do instrumento"></div>
   </div>
 </div></details>
 
 <details id="sec-nr15"><summary>10. NR-15 — Avaliações ambientais <span class="falta"></span></summary><div class="corpo">
   <div class="dica">Os 11 agentes precisam de resposta. "Sem fonte geradora" usa a frase padrão do agente. O que for texto próprio pode ser ditado pelo teclado.</div>
   <div id="grp_nr15"></div>
+  <div class="fotoswrap" data-fsec="nr15" data-frotulo="Fotos das avaliações — FISPQs, embalagens, produtos"></div>
 </div></details>
 
 <details id="sec-nr16"><summary>11. NR-16 — Periculosidade <span class="falta"></span></summary><div class="corpo">
   <div class="dica">Os 11 itens precisam de resposta. O item 2 (inflamáveis) nunca usa resposta padrão.</div>
   <div id="grp_nr16"></div>
+  <div class="fotoswrap" data-fsec="nr16_2" data-frotulo="Fotos do item 2 — inflamáveis e área de risco"></div>
 </div></details>
 
 <details id="sec-controversias"><summary>12. Controvérsias entre as partes</summary><div class="corpo">
@@ -317,6 +328,7 @@
 <details id="sec-obs"><summary>16. Observações livres</summary><div class="corpo">
   <label>Qualquer coisa que não coube acima (documentos dos autos usados, setor desativado/modo documental, migração de setor…)</label>
   <textarea class="grande" id="observacoes_texto"></textarea>
+  <div class="fotoswrap" data-fsec="outras" data-frotulo="Outras fotos (a montagem pergunta onde entram)"></div>
 </div></details>
 
 <details open id="pendencias"><summary>⚠ Pendências antes de sair do local</summary><div class="corpo"><ul id="lstPend"></ul></div></details>
@@ -418,6 +430,7 @@ function excluirRascunho(id){
   if(i.semExporte) aviso=`A vistoria de ${i.nome||"(sem reclamante)"} tem alterações que NUNCA foram exportadas.\n\nExcluir assim mesmo? O que não foi exportado se perde de vez.`;
   if(!confirm(aviso)) return;
   ["","_edit","_export"].forEach(s=>{ try{ localStorage.removeItem(LS_PREFIX+id+s); }catch(e){} });
+  fotosApagarVistoria(id);               // fotos da vistoria excluída saem do aparelho
   IDX.lista=IDX.lista.filter(r=>r.id!==id);
   if(!IDX.lista.length) IDX.lista=[{id:novoId(), criado:Date.now()}];
   if(eraAtivo) IDX.ativo=IDX.lista[0].id;
@@ -1390,7 +1403,7 @@ function limpar(){
   LIMPANDO=true; salvarPendente=false; clearTimeout(tSalvar);
   ANEXO=null; ANEXO_FILE=null; ANEXO_TEXTO_FULL=null; ANEXO_REF=null; ANEXO_REF_FILE=null; AUTO.clear(); AUTO_DER.clear(); AUTO_ORIG={};
   ["","_edit","_export"].forEach(s=>{ try{ localStorage.removeItem(LS+s); }catch(e){} });
-  location.reload();
+  fotosApagarVistoria(RASC).catch(()=>{}).then(()=>location.reload());
 }
 
 /* =============================== pendências ============================== */
@@ -1436,8 +1449,13 @@ function pendencias(){
 /* some e o Exportar volta ao caminho antigo (compartilhar → baixar → copiar). */
 const FS_OK = typeof window.showDirectoryPicker === "function";
 let DIR = null;
-function idbAbrir(){ return new Promise((res,rej)=>{ const r=indexedDB.open("vistoria_fs",1);
-  r.onupgradeneeded=()=>r.result.createObjectStore("h");
+function idbAbrir(){ return new Promise((res,rej)=>{ const r=indexedDB.open("vistoria_fs",2);
+  r.onupgradeneeded=()=>{ const db=r.result;
+    if(!db.objectStoreNames.contains("h")) db.createObjectStore("h");
+    if(!db.objectStoreNames.contains("fotos")){
+      const s=db.createObjectStore("fotos",{keyPath:"id",autoIncrement:true});
+      s.createIndex("rasc","rascunho",{unique:false});
+    } };
   r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 function idbOp(modo, fn){ return idbAbrir().then(db=>new Promise((res,rej)=>{
   const req=fn(db.transaction("h",modo).objectStore("h"));
@@ -1445,6 +1463,80 @@ function idbOp(modo, fn){ return idbAbrir().then(db=>new Promise((res,rej)=>{
 const idbGet = k => idbOp("readonly",  s=>s.get(k));
 const idbSet = (k,v) => idbOp("readwrite", s=>s.put(v,k));
 const idbDel = k => idbOp("readwrite", s=>s.delete(k));
+
+/* ============================ fotos (v5.9) =============================== */
+/* Fotos por seção, no IndexedDB (o localStorage não comporta): registro       */
+/* {id, rascunho, secao, ordem, mime, dataUrl}. O Exportar embute tudo no      */
+/* mesmo *_vistoria.json (chave `fotos`) — arquivo único, como sempre — e a    */
+/* montagem as posiciona nas âncoras da seção ([INSERIR FOTOS]).               */
+const RASC = (typeof IDX!=="undefined" && IDX) ? IDX.ativo : "legado";
+function fotosOp(modo, fn){ return idbAbrir().then(db=>new Promise((res,rej)=>{
+  const req=fn(db.transaction("fotos",modo).objectStore("fotos"));
+  req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); })); }
+function fotosDe(rascunho){
+  return fotosOp("readonly", s=>s.index("rasc").getAll(rascunho)).then(l=>(l||[]).sort((a,b)=>(a.ordem-b.ordem)||(a.id-b.id)));
+}
+function fotosAdd(secao, dataUrl, ordem){
+  return fotosOp("readwrite", s=>s.add({rascunho:RASC, secao, ordem, mime:"image/jpeg", dataUrl, criado:Date.now()}));
+}
+const fotosDel = id => fotosOp("readwrite", s=>s.delete(id));
+async function fotosApagarVistoria(rascunho){
+  const l=await fotosDe(rascunho).catch(()=>[]);
+  for(const f of l){ try{ await fotosDel(f.id); }catch(e){} }
+}
+async function comprimirFoto(file){
+  let bmp=null;
+  try{ bmp=await createImageBitmap(file,{imageOrientation:"from-image"}); }
+  catch(e){ try{ bmp=await createImageBitmap(file); }catch(e2){} }
+  if(!bmp){                             // fallback: <img> (Safari antigo)
+    bmp=await new Promise((res,rej)=>{ const u=URL.createObjectURL(file), im=new Image();
+      im.onload=()=>{ URL.revokeObjectURL(u); res(im); }; im.onerror=rej; im.src=u; });
+  }
+  const W=bmp.width||bmp.naturalWidth, H=bmp.height||bmp.naturalHeight;
+  const esc=Math.min(1, 1600/Math.max(W,H));
+  const cv=document.createElement("canvas");
+  cv.width=Math.max(1,Math.round(W*esc)); cv.height=Math.max(1,Math.round(H*esc));
+  cv.getContext("2d").drawImage(bmp,0,0,cv.width,cv.height);
+  return cv.toDataURL("image/jpeg",0.72);
+}
+async function fotosRender(){
+  const todas=await fotosDe(RASC).catch(()=>[]);
+  document.querySelectorAll(".fotoswrap").forEach(w=>{
+    const sec=w.dataset.fsec, grid=w.querySelector(".fgrid"), num=w.querySelector(".fnum");
+    if(!grid) return;
+    const minhas=todas.filter(f=>f.secao===sec);
+    grid.innerHTML="";
+    minhas.forEach(f=>{
+      const d=document.createElement("div"); d.className="fthumb";
+      const im=document.createElement("img"); im.src=f.dataUrl; im.alt="foto";
+      const b=document.createElement("button"); b.type="button"; b.className="rm"; b.textContent="×";
+      b.onclick=async()=>{ if(!confirm("Excluir esta foto?")) return; await fotosDel(f.id); fotosRender(); };
+      d.appendChild(im); d.appendChild(b); grid.appendChild(d);
+    });
+    if(num) num.textContent=minhas.length?`· ${minhas.length} foto(s) — saem no laudo nesta seção`:"";
+  });
+}
+function montaFotos(){
+  document.querySelectorAll(".fotoswrap").forEach(w=>{
+    const rot=w.dataset.frotulo||"Fotos";
+    w.innerHTML=`<label>${esc(rot)} <span class="fnum"></span></label><div class="fgrid"></div>`
+      +`<button class="add" type="button">📷 Tirar / anexar fotos</button>`
+      +`<input type="file" accept="image/*" multiple class="oculto">`;
+    const inp=w.querySelector("input[type=file]");
+    w.querySelector("button.add").onclick=()=>inp.click();
+    inp.onchange=async ev=>{
+      const files=[...(ev.target.files||[])]; ev.target.value="";
+      if(!files.length) return;
+      const jaTem=(await fotosDe(RASC).catch(()=>[])).filter(f=>f.secao===w.dataset.fsec).length;
+      for(let i=0;i<files.length;i++){
+        try{ const du=await comprimirFoto(files[i]); await fotosAdd(w.dataset.fsec, du, jaTem+i+1); }
+        catch(e){ alert("Não consegui processar uma das fotos: "+e.message); }
+      }
+      fotosRender();
+    };
+  });
+  fotosRender();
+}
 
 async function permPasta(){
   if(!DIR) return false;
@@ -1514,7 +1606,7 @@ function campo(lista, caminho, valor, status){
   const v = (valor===undefined||valor===null)?"":String(valor).trim();
   lista.push({campo:caminho, valor: v||null, origem:"formulario", status: status || (v?"confirmado":"lacuna")});
 }
-function exportar(){
+async function exportar(){
   const pend = listaPendencias();
   if(pend.length && !confirm(`Exportar mesmo com ${pend.length} pendência(s)?\n\n— `+pend.join("\n— "))) return;
   const d = coletar(), c = [], hoje = new Date().toISOString().slice(0,10);
@@ -1629,7 +1721,7 @@ function exportar(){
       metodologia:true,                     // decisão de 18/08: METODOLOGIA sempre entra (o campo saiu do formulário na v5.8)
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.8-2026-08-26"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.9-2026-08-26"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
@@ -1645,6 +1737,13 @@ function exportar(){
       tipo:ANEXO_REF.tipo, extraido_em:ANEXO_REF.extraido_em, truncado:ANEXO_REF.truncado,
       texto_extraido:ANEXO_REF.texto||null} : null,   // gabarito do escritório — só conferência na montagem
     backup_formulario:dBackup};
+
+  // fotos da vistoria (v5.9) — embutidas em base64, mesma regra do arquivo único;
+  // a montagem as posiciona nas âncoras da seção correspondente ([INSERIR FOTOS])
+  try{
+    const fts = await fotosDe(RASC);
+    if(fts.length) registro.fotos = fts.map(f=>({secao:f.secao, ordem:f.ordem, mime:f.mime, dataUrl:f.dataUrl}));
+  }catch(e){}
 
   try{ localStorage.setItem(LS+"_export", String(Date.now())); }catch(e){}
   entregar(nomeArquivo(g,hoje), JSON.stringify(registro,null,2));
@@ -1753,6 +1852,12 @@ function importar(ev){
       }
       if(j.anexo_referencia && ANEXO_REF && !ANEXO_REF.texto){ ANEXO_REF.texto=j.anexo_referencia.texto_extraido||"";
         if(ANEXO_REF.texto) setRefMsg(`documento de apoio: ${ANEXO_REF.nome}`,"ok"); }
+      if(Array.isArray(j.fotos)){                     // v5.9: fotos embutidas no registro
+        fotosApagarVistoria(RASC).then(async()=>{
+          for(const f of j.fotos){ if(f && f.dataUrl) try{ await fotosAdd(f.secao||"outras", f.dataUrl, f.ordem||0); }catch(e){} }
+          fotosRender();
+        });
+      }
       salvar();
     }catch(e){ alert("Não consegui ler o arquivo: "+e.message); } };
   r.readAsText(f);
@@ -1762,6 +1867,7 @@ function importar(ev){
 /* ================================== init ================================= */
 document.getElementById("avisoJS").remove();   // JS rodou: o aviso sai
 montaNR();
+montaFotos();                                   // v5.9: fotos por seção
 document.getElementById("processo_numero_cnj").addEventListener("blur", ()=>{validaCNJ();salvar();});
 ["vinculo_admissao","vinculo_demissao"].forEach(id=>document.getElementById(id).addEventListener("change", checaDatas));
 ["vistoria_hora_inicio","vistoria_hora_termino"].forEach(id=>document.getElementById(id).addEventListener("change", checaHoras));
