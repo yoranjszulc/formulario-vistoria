@@ -70,7 +70,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v6.0 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v6.1 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -337,6 +337,7 @@
 <div class="barra">
   <button id="btExportar" type="button" onclick="exportar(true)">Enviar ao escritório</button>
   <button class="sec" type="button" onclick="buscarNuvem()">Buscar vistoria</button>
+  <button class="sec" type="button" onclick="laudosProntos()">Laudos prontos</button>
   <button class="sec" type="button" onclick="exportar()">Exportar arquivo</button>
   <button id="btPasta" class="sec oculto" type="button" onclick="escolherPasta()">Escolher pasta…</button>
   <button class="sec" type="button" onclick="document.getElementById('importFile').click()">Importar arquivo</button>
@@ -1723,7 +1724,7 @@ async function exportar(nuvem){
       metodologia:true,                     // decisão de 18/08: METODOLOGIA sempre entra (o campo saiu do formulário na v5.8)
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.0-2026-08-26"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.1-2026-08-27"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
@@ -1896,7 +1897,30 @@ async function enviarNuvem(nome, conteudo){
     if(!r) return;
     const j=await r.json().catch(()=>({}));
     if(r.ok && j.ok){
+      // v6.1: o doc de apoio e o processo viajam junto (quando ainda em memória —
+      // File não sobrevive a recarga; o processo só até o limite de 25 MB, e seu
+      // texto já vai dentro do próprio JSON de toda forma)
+      const base=nome.replace(/_vistoria[.]json$/,"");
+      const extras=[], faltas=[];
+      if(ANEXO_REF_FILE && ANEXO_REF){
+        const alvo=base+"_referencia."+(ANEXO_REF.tipo||"docx");
+        try{ const rr=await nuvem("enviar",{nome:alvo},ANEXO_REF_FILE);
+          if(rr && rr.ok) extras.push(alvo); else faltas.push("doc de apoio");
+        }catch(e){ faltas.push("doc de apoio"); }
+      } else if(ANEXO_REF){ faltas.push("doc de apoio (página recarregada desde o anexo — reanexe se o escritório precisar do original)"); }
+      if(ANEXO_FILE && ANEXO){
+        if(ANEXO_FILE.size<=24*1024*1024){
+          const alvo=base+"_processo."+(ANEXO.tipo||"pdf");
+          try{ const rr=await nuvem("enviar",{nome:alvo},ANEXO_FILE);
+            if(rr && rr.ok) extras.push(alvo);
+          }catch(e){}
+        }
+      }
+      window.__nuvemExtras={extras, faltas};
+      const ex=window.__nuvemExtras||{extras:[],faltas:[]};
       alert("Enviado ao escritório:\n"+nome+" ("+Math.max(1,Math.round(j.bytes/1024))+" KB)"
+        +(ex.extras.length? "\nFoi junto: "+ex.extras.join(", ") : "")
+        +(ex.faltas.length? "\n⚠ Não foi: "+ex.faltas.join("; ") : "")
         +"\n\nO formulário vai abrir uma vistoria nova em branco — esta fica guardada na tela Vistorias.");
       posExportar();
     } else alert("O envio não foi aceito: "+(j.erro||("erro "+r.status))
@@ -1943,6 +1967,44 @@ async function buscarNuvem(){
         m.remove();
         alert("Vistoria carregada: "+esc(cnjDoNome(a.nome)));
       }catch(e){ alert("Não consegui abrir: "+e.message); b.disabled=false; b.textContent="Abrir"; }
+    };
+    d.appendChild(b); cx.appendChild(d);
+  });
+  const f=document.createElement("button"); f.className="add"; f.type="button"; f.textContent="Fechar";
+  f.onclick=()=>m.remove(); cx.appendChild(f);
+  m.appendChild(cx); document.body.appendChild(m);
+}
+
+async function laudosProntos(){
+  let r;
+  try{ r=await nuvem("listar"); }catch(e){
+    alert("Sem conexão com o escritório ("+e.message+"). Tente com internet."); return;
+  }
+  if(!r) return;
+  const j=await r.json().catch(()=>({}));
+  const docs=(j.arquivos||[]).filter(a=>/[.]docx$/i.test(a.nome) && !/_(processo|referencia)[.]/i.test(a.nome));
+  if(!docs.length){ alert("Nenhum laudo pronto no escritório por enquanto."); return; }
+  let m=document.getElementById("modalNuvem");
+  if(m) m.remove();
+  m=document.createElement("div"); m.id="modalNuvem";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99;display:flex;align-items:center;justify-content:center;padding:1rem";
+  const cx=document.createElement("div");
+  cx.style.cssText="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:1rem";
+  cx.innerHTML="<b>Laudos prontos</b><div class='dica'>Toque em Baixar — o laudo abre em Word, para conferir e completar.</div>";
+  docs.forEach(a=>{
+    const d=document.createElement("div"); d.className="row-dyn";
+    d.innerHTML=`<b>${esc(a.nome)}</b><div class="dica">${a.tamanho?Math.max(1,Math.round(a.tamanho/1024))+" KB":""}</div>`;
+    const b=document.createElement("button"); b.className="add"; b.type="button"; b.textContent="Baixar";
+    b.onclick=async()=>{
+      b.disabled=true; b.textContent="Baixando…";
+      try{
+        const rr=await nuvem("buscar",{nome:a.nome});
+        const blob=await rr.blob();
+        const u=URL.createObjectURL(blob), el=document.createElement("a");
+        el.href=u; el.download=a.nome; document.body.appendChild(el); el.click(); el.remove();
+        setTimeout(()=>URL.revokeObjectURL(u),8000);
+        b.textContent="Baixado ✓";
+      }catch(e){ alert("Não consegui baixar: "+e.message); b.disabled=false; b.textContent="Baixar"; }
     };
     d.appendChild(b); cx.appendChild(d);
   });
