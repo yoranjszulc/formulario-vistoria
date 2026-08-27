@@ -1777,7 +1777,17 @@ async function entregar(nome, conteudo){
       // sem `title`: com arquivo junto, o title vira um item de texto avulso no
       // pacote de compartilhamento e o OneDrive acusa "texto.txt não pôde ser
       // exportado" (visto em 26/08/2026) — o nome já viaja no próprio File
-      navigator.share({files:[f]}).then(()=>posExportar()).catch(()=>baixarOuCopiar(nome, conteudo));
+      // o alert segura a página viva até o OneDrive terminar de copiar o arquivo
+      // temporário do compartilhamento — recarregar imediatamente (posExportar)
+      // matava o temp e o iOS acusava "o arquivo não existe" (visto em 26/08/2026)
+      navigator.share({files:[f]}).then(()=>{
+        alert("Compartilhado: " + nome
+          + "\n\nAntes de seguir, confira no OneDrive se o arquivo apareceu em "
+          + "Laudos → Troca → 1. Enviar."
+          + "\n\nAo tocar em OK o formulário abre uma vistoria nova em branco — "
+          + "esta fica guardada na tela Vistorias.");
+        posExportar();
+      }).catch(()=>baixarOuCopiar(nome, conteudo));
       return;
     }
   }catch(e){}
