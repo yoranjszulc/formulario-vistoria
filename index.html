@@ -1774,7 +1774,10 @@ async function entregar(nome, conteudo){
   try{
     const f = new File([conteudo], nome, {type:"application/json"});
     if(navigator.canShare && navigator.canShare({files:[f]})){
-      navigator.share({files:[f], title:nome}).then(()=>posExportar()).catch(()=>baixarOuCopiar(nome, conteudo));
+      // sem `title`: com arquivo junto, o title vira um item de texto avulso no
+      // pacote de compartilhamento e o OneDrive acusa "texto.txt não pôde ser
+      // exportado" (visto em 26/08/2026) — o nome já viaja no próprio File
+      navigator.share({files:[f]}).then(()=>posExportar()).catch(()=>baixarOuCopiar(nome, conteudo));
       return;
     }
   }catch(e){}
