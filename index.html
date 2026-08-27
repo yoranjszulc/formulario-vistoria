@@ -70,7 +70,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v6.1 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v6.1.1 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -1724,7 +1724,7 @@ async function exportar(nuvem){
       metodologia:true,                     // decisão de 18/08: METODOLOGIA sempre entra (o campo saiu do formulário na v5.8)
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.1-2026-08-27"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.1.1-2026-08-27"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
@@ -1898,8 +1898,9 @@ async function enviarNuvem(nome, conteudo){
     const j=await r.json().catch(()=>({}));
     if(r.ok && j.ok){
       // v6.1: o doc de apoio e o processo viajam junto (quando ainda em memória —
-      // File não sobrevive a recarga; o processo só até o limite de 25 MB, e seu
-      // texto já vai dentro do próprio JSON de toda forma)
+      // File não sobrevive a recarga; o processo só até o limite de 24 MB, e seu
+      // texto já vai dentro do próprio JSON de toda forma). v6.1.1: o processo
+      // que não sobe entra em faltas — antes era pulado em silêncio.
       const base=nome.replace(/_vistoria[.]json$/,"");
       const extras=[], faltas=[];
       if(ANEXO_REF_FILE && ANEXO_REF){
@@ -1912,10 +1913,10 @@ async function enviarNuvem(nome, conteudo){
         if(ANEXO_FILE.size<=24*1024*1024){
           const alvo=base+"_processo."+(ANEXO.tipo||"pdf");
           try{ const rr=await nuvem("enviar",{nome:alvo},ANEXO_FILE);
-            if(rr && rr.ok) extras.push(alvo);
-          }catch(e){}
-        }
-      }
+            if(rr && rr.ok) extras.push(alvo); else faltas.push("processo");
+          }catch(e){ faltas.push("processo"); }
+        } else faltas.push("processo (PDF de "+Math.round(ANEXO_FILE.size/1048576)+" MB, acima do limite de 24 MB — salve o PDF na pasta 1. Enviar)");
+      } else if(ANEXO){ faltas.push("processo (página recarregada desde o anexo — reanexe se o escritório precisar do PDF)"); }
       window.__nuvemExtras={extras, faltas};
       const ex=window.__nuvemExtras||{extras:[],faltas:[]};
       alert("Enviado ao escritório:\n"+nome+" ("+Math.max(1,Math.round(j.bytes/1024))+" KB)"
