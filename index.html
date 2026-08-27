@@ -70,7 +70,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v5.9.1 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v5.9.2 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -1721,7 +1721,7 @@ async function exportar(){
       metodologia:true,                     // decisão de 18/08: METODOLOGIA sempre entra (o campo saiu do formulário na v5.8)
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.9.1-2026-08-26"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.9.2-2026-08-26"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
@@ -1772,18 +1772,33 @@ async function entregar(nome, conteudo){
     }catch(e){ alert("Não consegui gravar na pasta ("+e.message+"). Vou baixar o arquivo."); }
   }
   try{
-    const f = new File([conteudo], nome, {type:"application/json"});
-    if(navigator.canShare && navigator.canShare({files:[f]})){
+    // paridade com a pasta vinculada (26/08/2026): o compartilhar leva também o
+    // arquivo do processo e o documento de apoio, quando ainda estão em memória
+    // (File não sobrevive a recarga da página — aí vai só o JSON, com aviso)
+    const base = nome.replace(/_vistoria\.json$/,"");
+    const fs = [new File([conteudo], nome, {type:"application/json"})];
+    if(ANEXO_FILE && ANEXO)
+      fs.push(new File([ANEXO_FILE], base+"_processo."+(ANEXO.tipo||"pdf"),
+                       {type:ANEXO_FILE.type||"application/pdf"}));
+    if(ANEXO_REF_FILE && ANEXO_REF)
+      fs.push(new File([ANEXO_REF_FILE], base+"_referencia."+(ANEXO_REF.tipo||"docx"),
+                       {type:ANEXO_REF_FILE.type||"application/octet-stream"}));
+    let compart = fs;
+    if(!(navigator.canShare && navigator.canShare({files:compart}))) compart=[fs[0]];
+    if(navigator.canShare && navigator.canShare({files:compart})){
       // sem `title`: com arquivo junto, o title vira um item de texto avulso no
       // pacote de compartilhamento e o OneDrive acusa "texto.txt não pôde ser
       // exportado" (visto em 26/08/2026) — o nome já viaja no próprio File
-      // o alert segura a página viva até o OneDrive terminar de copiar o arquivo
-      // temporário do compartilhamento — recarregar imediatamente (posExportar)
+      // o alert segura a página viva até o OneDrive terminar de copiar os arquivos
+      // temporários do compartilhamento — recarregar imediatamente (posExportar)
       // matava o temp e o iOS acusava "o arquivo não existe" (visto em 26/08/2026)
-      navigator.share({files:[f]}).then(()=>{
-        alert("Compartilhado: " + nome
-          + "\n\nAntes de seguir, confira no OneDrive se o arquivo apareceu em "
+      navigator.share({files:compart}).then(()=>{
+        alert("Compartilhado(s) "+compart.length+" arquivo(s):\n"
+          + compart.map(x=>"• "+x.name).join("\n")
+          + "\n\nAntes de seguir, confira no OneDrive se apareceram em "
           + "Laudos → Troca → 1. Enviar."
+          + (ANEXO && !ANEXO_FILE ? "\n\n⚠ a página foi recarregada desde o anexo: o arquivo do processo NÃO foi junto — mande-o à parte se a montagem precisar do original." : "")
+          + (ANEXO_REF && !ANEXO_REF_FILE ? "\n⚠ o documento de apoio também não foi junto (mesmo motivo)." : "")
           + "\n\nAo tocar em OK o formulário abre uma vistoria nova em branco — "
           + "esta fica guardada na tela Vistorias.");
         posExportar();
