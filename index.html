@@ -70,7 +70,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v5.9.2 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v6.0 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" onclick="abrirRascunhos()">Vistorias</button>
@@ -335,9 +335,11 @@
 
 </main>
 <div class="barra">
-  <button id="btExportar" type="button" onclick="exportar()">Exportar</button>
+  <button id="btExportar" type="button" onclick="exportar(true)">Enviar ao escritório</button>
+  <button class="sec" type="button" onclick="buscarNuvem()">Buscar vistoria</button>
+  <button class="sec" type="button" onclick="exportar()">Exportar arquivo</button>
   <button id="btPasta" class="sec oculto" type="button" onclick="escolherPasta()">Escolher pasta…</button>
-  <button class="sec" type="button" onclick="document.getElementById('importFile').click()">Importar</button>
+  <button class="sec" type="button" onclick="document.getElementById('importFile').click()">Importar arquivo</button>
   <input type="file" id="importFile" class="oculto" accept=".json" onchange="importar(event)">
   <button class="sec" type="button" onclick="limpar()">Limpar esta vistoria</button>
 </div>
@@ -1606,7 +1608,7 @@ function campo(lista, caminho, valor, status){
   const v = (valor===undefined||valor===null)?"":String(valor).trim();
   lista.push({campo:caminho, valor: v||null, origem:"formulario", status: status || (v?"confirmado":"lacuna")});
 }
-async function exportar(){
+async function exportar(nuvem){
   const pend = listaPendencias();
   if(pend.length && !confirm(`Exportar mesmo com ${pend.length} pendência(s)?\n\n— `+pend.join("\n— "))) return;
   const d = coletar(), c = [], hoje = new Date().toISOString().slice(0,10);
@@ -1721,7 +1723,7 @@ async function exportar(){
       metodologia:true,                     // decisão de 18/08: METODOLOGIA sempre entra (o campo saiu do formulário na v5.8)
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v5.9.2-2026-08-26"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.0-2026-08-26"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
@@ -1746,7 +1748,8 @@ async function exportar(){
   }catch(e){}
 
   try{ localStorage.setItem(LS+"_export", String(Date.now())); }catch(e){}
-  entregar(nomeArquivo(g,hoje), JSON.stringify(registro,null,2));
+  if(nuvem){ enviarNuvem(nomeArquivo(g,hoje), JSON.stringify(registro)); }
+  else entregar(nomeArquivo(g,hoje), JSON.stringify(registro,null,2));
 }
 // exportou = terminou esta vistoria: o formulário abre uma nova em branco (pedido do Yoran,
 // 26/08). A exportada FICA na tela "Vistorias", com o carimbo de exportação — nada se perde.
@@ -1862,11 +1865,93 @@ function registroParaBackup(j){
   if(me.n_reclamadas) d.campos.meta_n_reclamadas=String(me.n_reclamadas);
   return d;
 }
-function importar(ev){
-  const f=ev.target.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=()=>{ try{
-      const j=JSON.parse(r.result);
+/* ===================== nuvem (v6.0) — transporte Supabase ================= */
+/* Substitui o OneDrive no trajeto celular ↔ escritório (decisão do Yoran,     */
+/* 26/08/2026). Função troca-laudos: enviar / listar / buscar, autenticada     */
+/* pelo código do escritório (pedido uma vez e guardado no aparelho).          */
+const NUVEM_URL="https://hwpkszogjfqmjsvrxvji.supabase.co/functions/v1/troca-laudos";
+function codigoEscritorio(renovar){
+  let c=null; try{ c=localStorage.getItem("vistoria_codigo"); }catch(e){}
+  if(!c || renovar){
+    c=prompt("Código do escritório (uma vez só — fica guardado neste aparelho):", c||"");
+    if(c){ c=c.trim(); try{ localStorage.setItem("vistoria_codigo", c); }catch(e){} }
+  }
+  return c;
+}
+async function nuvem(acao, params, corpo){
+  const cod=codigoEscritorio(); if(!cod) return null;
+  const qs=new URLSearchParams(Object.assign({acao}, params||{}));
+  const r=await fetch(NUVEM_URL+"?"+qs, corpo!==undefined
+    ? {method:"POST", headers:{"x-codigo":cod,"content-type":"application/json"}, body:corpo}
+    : {headers:{"x-codigo":cod}});
+  if(r.status===401){
+    if(codigoEscritorio(true)) return nuvem(acao, params, corpo);
+    return null;
+  }
+  return r;
+}
+async function enviarNuvem(nome, conteudo){
+  try{
+    const r=await nuvem("enviar",{nome},conteudo);
+    if(!r) return;
+    const j=await r.json().catch(()=>({}));
+    if(r.ok && j.ok){
+      alert("Enviado ao escritório:\n"+nome+" ("+Math.max(1,Math.round(j.bytes/1024))+" KB)"
+        +"\n\nO formulário vai abrir uma vistoria nova em branco — esta fica guardada na tela Vistorias.");
+      posExportar();
+    } else alert("O envio não foi aceito: "+(j.erro||("erro "+r.status))
+        +"\n\nSe estiver sem internet, use o botão Exportar arquivo.");
+  }catch(e){
+    alert("Sem conexão com o escritório ("+e.message+").\n\nUse o botão Exportar arquivo, ou tente de novo com internet.");
+  }
+}
+function brDataNome(nome){
+  const m=nome.match(/_(\d{4})-(\d{2})-(\d{2})_vistoria\.json$/);
+  return m?`${m[3]}/${m[2]}/${m[1]}`:"";
+}
+function cnjDoNome(nome){
+  const m=nome.match(/^(\d{7})(\d{2})(\d{4})(\d)(\d{2})(\d{4})_/);
+  return m?`${m[1]}-${m[2]}.${m[3]}.${m[4]}.${m[5]}.${m[6]}`:nome.split("_")[0];
+}
+async function buscarNuvem(){
+  let r;
+  try{ r=await nuvem("listar"); }catch(e){
+    alert("Sem conexão com o escritório ("+e.message+"). Tente com internet, ou use Importar arquivo."); return;
+  }
+  if(!r) return;
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){ alert("Não consegui listar: "+(j.erro||r.status)); return; }
+  if(!(j.arquivos||[]).length){ alert("Nenhuma vistoria guardada no escritório."); return; }
+  let m=document.getElementById("modalNuvem");
+  if(m) m.remove();
+  m=document.createElement("div"); m.id="modalNuvem";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99;display:flex;align-items:center;justify-content:center;padding:1rem";
+  const cx=document.createElement("div");
+  cx.style.cssText="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:1rem";
+  cx.innerHTML="<b>Vistorias no escritório</b><div class='dica'>Toque em Abrir para carregar no formulário — substitui o que estiver na vistoria aberta.</div>";
+  j.arquivos.forEach(a=>{
+    const d=document.createElement("div"); d.className="row-dyn";
+    d.innerHTML=`<b>${esc(cnjDoNome(a.nome))}</b><div class="dica">vistoria ${esc(brDataNome(a.nome))}`
+      +`${a.tamanho?" · "+Math.max(1,Math.round(a.tamanho/1024))+" KB":""}</div>`;
+    const b=document.createElement("button"); b.className="add"; b.type="button"; b.textContent="Abrir";
+    b.onclick=async()=>{
+      b.disabled=true; b.textContent="Abrindo…";
+      try{
+        const rr=await nuvem("buscar",{nome:a.nome});
+        const jj=await rr.json();
+        aplicarImportado(jj);
+        m.remove();
+        alert("Vistoria carregada: "+esc(cnjDoNome(a.nome)));
+      }catch(e){ alert("Não consegui abrir: "+e.message); b.disabled=false; b.textContent="Abrir"; }
+    };
+    d.appendChild(b); cx.appendChild(d);
+  });
+  const f=document.createElement("button"); f.className="add"; f.type="button"; f.textContent="Fechar";
+  f.onclick=()=>m.remove(); cx.appendChild(f);
+  m.appendChild(cx); document.body.appendChild(m);
+}
+
+function aplicarImportado(j){
       if(j.backup_formulario && j.backup_formulario.campos){ aplicar(j.backup_formulario); }   // registro v3+: backup embutido
       else if(j.campos && !Array.isArray(j.campos)){ aplicar(j); }                             // backup bruto do formulário
       else if(Array.isArray(j.campos)){ aplicar(registroParaBackup(j));
@@ -1887,7 +1972,12 @@ function importar(ev){
         });
       }
       salvar();
-    }catch(e){ alert("Não consegui ler o arquivo: "+e.message); } };
+}
+function importar(ev){
+  const f=ev.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ aplicarImportado(JSON.parse(r.result)); }
+    catch(e){ alert("Não consegui ler o arquivo: "+e.message); } };
   r.readAsText(f);
   ev.target.value="";
 }
