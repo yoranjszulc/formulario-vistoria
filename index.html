@@ -17,10 +17,10 @@
   header{background:var(--azul);color:#fff;padding:.8rem 1rem;position:sticky;top:0;z-index:9}
   header h1{font-size:1.05rem;margin:0}
   header .sub{font-size:.78rem;opacity:.85}
-  main{max-width:860px;margin:0 auto;padding:.6rem .6rem 6rem}
+  main{max-width:860px;margin:0 auto;padding:.6rem .6rem 4.6rem}
   details{background:#fff;border:1px solid var(--borda);border-radius:8px;margin:.6rem 0;overflow:hidden}
   summary{cursor:pointer;padding:.7rem .9rem;font-weight:bold;background:#e8ecf1;font-size:.95rem}
-  summary .falta{color:var(--erro);font-weight:normal;font-size:.8rem}
+  summary .falta{color:var(--erro);font-weight:normal;font-size:.85rem;margin-left:.35rem;white-space:nowrap}
   .corpo{padding:.8rem .9rem}
   label{display:block;font-size:.82rem;margin:.55rem 0 .15rem;color:#333}
   label b.req{color:var(--erro)}
@@ -33,19 +33,36 @@
   .dica{font-size:.75rem;color:#666;margin-top:.15rem}
   .valida{font-size:.8rem;margin-top:.2rem}
   .valida.ok{color:var(--ok)} .valida.erro{color:var(--erro)} .valida.aviso{color:var(--aviso)}
-  .autofill{background:#fff8dc;border-color:#c9a227}
+  .autofill,input.autofill,select.autofill,textarea.autofill{background:#fff8dc;border-color:#c9a227}
   .item-nr{border:1px solid var(--borda);border-radius:6px;padding:.6rem;margin:.5rem 0;background:#fafaf8}
   .item-nr h4{margin:.1rem 0 .3rem;font-size:.88rem}
   .row-dyn{border:1px dashed var(--borda);border-radius:6px;padding:.5rem;margin:.4rem 0;background:#fcfcfa;position:relative}
   .row-dyn .rm{position:absolute;top:.3rem;right:.3rem;border:none;background:#eee;border-radius:4px;cursor:pointer;font-size:.8rem;padding:.1rem .45rem}
   button.add{border:1px solid var(--azul);background:#fff;color:var(--azul);border-radius:6px;padding:.35rem .7rem;font:inherit;font-size:.85rem;cursor:pointer;margin-top:.3rem}
-  .barra{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--azul);padding:.55rem .8rem;display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;z-index:9}
-  .barra button{font:inherit;font-size:.9rem;padding:.55rem .9rem;border-radius:8px;cursor:pointer;border:1px solid var(--azul)}
-  #btExportar{background:var(--azul);color:#fff;font-weight:bold}
+  .barra{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--azul);padding:.45rem .6rem calc(.45rem + env(safe-area-inset-bottom));z-index:9;display:flex;flex-direction:column-reverse}
+  .barra-linha{display:flex;gap:.4rem;align-items:stretch}
+  .barra button{font:inherit;font-size:.88rem;padding:.5rem .8rem;border-radius:8px;cursor:pointer;border:1px solid var(--azul)}
+  #btExportar{background:var(--azul);color:#fff;font-weight:bold;flex:1 1 auto;min-width:0}
+  #btVistoria{flex:0 0 auto}
+  #btMais{flex:0 0 auto;padding:.4rem .85rem;font-weight:bold;font-size:1.25rem;line-height:1}
   .barra button.sec{background:#fff;color:var(--azul)}
-  #pendencias{background:#fff8e6;border:1px solid #e5d38a}
-  #pendencias .corpo{font-size:.85rem}
-  #pendencias li{margin:.15rem 0}
+  #maisAcoes{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;padding-bottom:.45rem;margin-bottom:.45rem;border-bottom:1px solid var(--borda)}
+  #maisAcoes.oculto{display:none}
+  #maisAcoes button{font-size:.85rem;padding:.45rem .7rem}
+  @media(min-width:720px){
+    .barra{flex-direction:row;flex-wrap:wrap;gap:.4rem;justify-content:center;align-items:stretch}
+    .barra-linha{display:contents}
+    #maisAcoes,#maisAcoes.oculto{display:contents}
+    #btMais{display:none}
+    #btExportar{flex:0 0 auto}
+  }
+  /* pendência sinalizada onde ela mora: ⚠ no título da seção, no rótulo do
+     campo e na caixa do agente/item. A lista completa continua no Exportar. */
+  /* só o ícone e a borda do campo: o amarelo já significa "veio do anexo" */
+  input.pend,select.pend,textarea.pend{border-color:var(--erro)}
+  label.pendlbl::after{content:" ⚠";color:var(--erro)}
+  .item-nr.pendbox>h4::after{content:" ⚠";color:var(--erro)}
+  button.add.pendbt::after{content:" ⚠";color:var(--erro)}
   #statusSalvo{font-size:.72rem;opacity:.8}
   .oculto{display:none}
   .chk{display:flex;align-items:flex-start;gap:.45rem;font-size:.85rem;margin:.4rem 0}
@@ -70,10 +87,10 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v6.1.1 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v6.2 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
-      <button type="button" onclick="abrirRascunhos()">Vistorias</button>
+      <button type="button" onclick="abrirRascunhos()">Rascunhos</button>
       <button type="button" onclick="abrirSecoes()">Seções</button>
     </div>
   </div>
@@ -111,11 +128,8 @@
   <label>Arquivo do processo (PDF ou Word) — preenche o básico, os quesitos e os honorários</label>
   <input type="file" id="anexoInput" accept=".pdf,.docx,.doc" onchange="anexarProcesso(event)">
   <div class="valida" id="v_anexo"></div>
-  <div class="dica">Precisa de internet na hora de anexar. Lê PDF com texto (PJe) e .docx;
-  páginas em foto (documentos escaneados, RG/CPF anexados) passam por leitura de imagem (OCR)
-  na hora — demora um pouco e o resultado sempre precisa de conferência. .doc antigo fica só
-  registrado — mande o arquivo junto com o JSON exportado que a extração é feita na montagem
-  do laudo. Campo já preenchido nunca é sobrescrito; o que for preenchido pelo anexo fica
+  <div class="dica">Precisa de internet na hora de anexar.
+  Campo já preenchido nunca é sobrescrito; o que for preenchido pelo anexo fica
   <b>amarelo</b> até você mexer nele — confira um a um. Os rols de quesitos achados no texto
   caem nas seções 14 e 15 — <b>confira a autoria</b> (reclamante × reclamada) antes de exportar.
   <a href="#" onclick="removerAnexo();return false">Remover anexo</a></div>
@@ -331,25 +345,28 @@
   <div class="fotoswrap" data-fsec="outras" data-frotulo="Outras fotos (a montagem pergunta onde entram)"></div>
 </div></details>
 
-<details open id="pendencias"><summary>⚠ Pendências antes de sair do local</summary><div class="corpo"><ul id="lstPend"></ul></div></details>
-
 </main>
 <div class="barra">
-  <button id="btExportar" type="button" onclick="exportar(true)">Enviar ao escritório</button>
-  <button class="sec" type="button" onclick="buscarNuvem()">Buscar vistoria</button>
-  <button class="sec" type="button" onclick="laudosProntos()">Laudos prontos</button>
-  <button class="sec" type="button" onclick="exportar()">Exportar arquivo</button>
-  <button id="btPasta" class="sec oculto" type="button" onclick="escolherPasta()">Escolher pasta…</button>
-  <button class="sec" type="button" onclick="document.getElementById('importFile').click()">Importar arquivo</button>
-  <input type="file" id="importFile" class="oculto" accept=".json" onchange="importar(event)">
-  <button class="sec" type="button" onclick="limpar()">Limpar esta vistoria</button>
+  <div class="barra-linha">
+    <button id="btExportar" type="button" onclick="exportar(true)" title="Enviar esta vistoria ao escritório">Enviar</button>
+    <button id="btVistoria" class="sec" type="button" onclick="buscarNuvem()" title="Buscar uma vistoria no escritório">Vistoria</button>
+    <button id="btMais" class="sec" type="button" onclick="alternarMais()" title="Mais ações" aria-label="Mais ações">+</button>
+  </div>
+  <div id="maisAcoes" class="oculto" onclick="fecharMais()">
+    <button class="sec" type="button" onclick="laudosProntos()" title="Laudos prontos para baixar">Laudos</button>
+    <button class="sec" type="button" onclick="exportar()" title="Exportar esta vistoria para um arquivo">Exportar</button>
+    <button id="btPasta" class="sec oculto" type="button" onclick="escolherPasta()">Pasta</button>
+    <button class="sec" type="button" onclick="document.getElementById('importFile').click()" title="Importar uma vistoria de um arquivo">Importar</button>
+    <input type="file" id="importFile" class="oculto" accept=".json" onchange="importar(event)">
+    <button class="sec" type="button" onclick="limpar()" title="Limpar esta vistoria">Limpar</button>
+  </div>
 </div>
 
 <div id="veu" class="oculto" onclick="fechaMenus()"></div>
 <nav id="menuSecoes" class="oculto"></nav>
 <div id="telaRascunhos" class="oculto">
   <div style="max-width:640px;margin:0 auto">
-    <h2 style="font-size:1.05rem;color:var(--azul);margin:.2rem 0 .1rem">Vistorias neste aparelho</h2>
+    <h2 style="font-size:1.05rem;color:var(--azul);margin:.2rem 0 .1rem">Rascunhos neste aparelho</h2>
     <div class="dica">Cada vistoria é um rascunho separado, salvo só neste aparelho. Abrir outra não apaga nada do que está preenchido.</div>
     <div id="lstRascunhos"></div>
     <div style="display:flex;gap:.5rem;margin-top:.6rem">
@@ -403,7 +420,9 @@ function infoRascunho(id){
     edit:ed, semExporte: ed>ex};
 }
 function brData(iso){ const m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:iso; }
-function fechaMenus(){ ["veu","menuSecoes","telaRascunhos"].forEach(i=>document.getElementById(i).classList.add("oculto")); }
+function fechaMenus(){ ["veu","menuSecoes","telaRascunhos"].forEach(i=>document.getElementById(i).classList.add("oculto")); fecharMais(); }
+function alternarMais(){ document.getElementById("maisAcoes").classList.toggle("oculto"); }
+function fecharMais(){ document.getElementById("maisAcoes").classList.add("oculto"); }
 function abrirRascunhos(){
   if(!IDX){ alert("Rascunhos indisponíveis: este navegador está sem armazenamento local."); return; }
   flushSalvar();
@@ -1394,7 +1413,7 @@ function temDados(){
 }
 function limpar(){
   // escolha sempre oferecida: exportar antes, ou só limpar (pedido do Yoran, 18/08)
-  if(temDados() && confirm("Exportar esta vistoria antes de limpar?\n\nOK = Exportar (a vistoria fica guardada na tela Vistorias e o formulário abre em branco)\nCancelar = seguir para limpar sem exportar")){ exportar(); return; }
+  if(temDados() && confirm("Exportar esta vistoria antes de limpar?\n\nOK = Exportar (a vistoria fica guardada na tela Rascunhos e o formulário abre em branco)\nCancelar = seguir para limpar sem exportar")){ exportar(); return; }
   let aviso="Apagar tudo que foi preenchido NESTA vistoria? (as outras vistorias do aparelho não são afetadas)";
   try{
     const exp=+(localStorage.getItem(LS+"_export")||0), ed=+(localStorage.getItem(LS+"_edit")||0);
@@ -1417,33 +1436,59 @@ const OBRIG = [["meta_categoria","categoria da perícia"],
  ["vinculo_setor","setor"],["reclamada_endereco","endereço vistoriado"],["reclamada_atividade","atividade da reclamada"],
  ["vistoria_data","data da vistoria"],["vistoria_hora_inicio","hora de início"],["vistoria_hora_termino","hora de término"],
  ["atividades_texto","descrição das atividades"]];
+/* Cada pendência carrega o elemento que a gerou: dele saem o ⚠ no rótulo do
+   campo, na caixa do agente e a conta no título da seção (via closest details). */
 function listaPendencias(){
-  const p=[];
-  for(const [id,nome] of OBRIG){ const el=document.getElementById(id); if(el && !el.value) p.push(nome); }
-  if(document.getElementById("meta_n_reclamadas").value==="2" && !document.getElementById("processo_reclamada2").value)
-    p.push("razão social da 2ª reclamada");
-  if(!document.querySelector("#lst_cicerones .row-dyn")) p.push("cicerones presentes");
-  if(!document.querySelector("#lst_epis .row-dyn")) p.push("EPIs (ou registrar que não houve)");
+  const p=[], add=(txt,alvo)=>p.push({txt, alvo:alvo||null});
+  for(const [id,nome] of OBRIG){ const el=document.getElementById(id); if(el && !el.value) add(nome,el); }
+  const r2=document.getElementById("processo_reclamada2");
+  if(document.getElementById("meta_n_reclamadas").value==="2" && !r2.value)
+    add("razão social da 2ª reclamada", r2);
+  if(!document.querySelector("#lst_cicerones .row-dyn"))
+    add("cicerones presentes", document.getElementById("lst_cicerones"));
+  if(!document.querySelector("#lst_epis .row-dyn"))
+    add("EPIs (ou registrar que não houve)", document.getElementById("lst_epis"));
   document.querySelectorAll("#lst_epis .row-dyn").forEach((r,i)=>{
-    const ca=r.querySelector('[data-k="ca"]').value.trim();
-    if(ca && !/^\d{3,6}$/.test(ca)) p.push(`C.A. do EPI ${i+1} com formato estranho ("${ca}")`);
+    const c=r.querySelector('[data-k="ca"]'), ca=c.value.trim();
+    if(ca && !/^\d{3,6}$/.test(ca)) add(`C.A. do EPI ${i+1} com formato estranho ("${ca}")`, c);
   });
   document.querySelectorAll("#lst_ruido .row-dyn").forEach((r,i)=>{
     const o=r.querySelector('[data-k="origem"]'), n=r.querySelector('[data-k="nivel"]');
-    if(o && n && n.value.trim() && !o.value) p.push(`leitura de ruído ${i+1} sem origem (medida ou documental)`);
+    if(o && n && n.value.trim() && !o.value) add(`leitura de ruído ${i+1} sem origem (medida ou documental)`, o);
   });
   const cat=document.getElementById("meta_categoria").value;
   if(cat && cat!=="periculosidade")
-    for(let n=1;n<=11;n++) if(!document.getElementById(`nr15_${n}_modo`).value) p.push(`NR-15 agente ${n} sem resposta`);
+    for(let n=1;n<=11;n++){ const s=document.getElementById(`nr15_${n}_modo`); if(!s.value) add(`NR-15 agente ${n} sem resposta`, s); }
   if(cat && cat!=="insalubridade")
-    for(let n=1;n<=11;n++) if(!document.getElementById(`nr16_${n}_modo`).value) p.push(`NR-16 item ${n} sem resposta`);
+    for(let n=1;n<=11;n++){ const s=document.getElementById(`nr16_${n}_modo`); if(!s.value) add(`NR-16 item ${n} sem resposta`, s); }
   return p;
 }
+function textosPendencias(){ return listaPendencias().map(x=>x.txt); }
 function pendencias(){
-  const p=listaPendencias();
-  const ul=document.getElementById("lstPend");
-  ul.innerHTML = p.length ? p.map(x=>`<li>${x}</li>`).join("") : "<li style='color:var(--ok)'>nada pendente ✓</li>";
-  document.querySelector("#pendencias summary").textContent = p.length?`⚠ Pendências antes de sair do local (${p.length})`:"✓ Sem pendências";
+  ["pend","pendlbl","pendbox","pendbt"].forEach(c=>
+    document.querySelectorAll("."+c).forEach(e=>e.classList.remove(c)));
+  const conta=new Map();
+  for(const {alvo} of listaPendencias()){
+    if(!alvo) continue;
+    const d=alvo.closest("details");
+    if(d) conta.set(d, (conta.get(d)||0)+1);
+    const rot=alvo.previousElementSibling;
+    if(rot && rot.tagName==="LABEL") rot.classList.add("pendlbl");
+    if(/^(INPUT|SELECT|TEXTAREA)$/.test(alvo.tagName)){
+      alvo.classList.add("pend");
+      const cx=alvo.closest(".item-nr");
+      if(cx) cx.classList.add("pendbox");
+    }else{
+      // lista ainda vazia (cicerones, EPIs): o aviso vai no botão que cria a linha
+      const bt=alvo.nextElementSibling;
+      if(bt && bt.classList.contains("add")) bt.classList.add("pendbt");
+    }
+  }
+  document.querySelectorAll("main>details").forEach(d=>{
+    const s=d.querySelector("summary .falta"); if(!s) return;
+    const n=conta.get(d)||0;
+    s.textContent = n ? `⚠ ${n}` : "";
+  });
 }
 
 /* ============================= pasta de destino ========================== */
@@ -1552,7 +1597,7 @@ async function permPasta(){
 function pintaPasta(){
   const b=document.getElementById("btPasta"); if(!b) return;
   b.classList.toggle("oculto", !FS_OK);
-  b.textContent = DIR ? `Pasta: ${DIR.name}` : "Escolher pasta…";
+  b.textContent = DIR ? `Pasta: ${DIR.name}` : "Pasta";
   b.title = DIR ? `O Exportar grava em ${DIR.name}. Clique para trocar.`
                 : "Escolha a pasta onde o Exportar vai gravar direto";
 }
@@ -1610,7 +1655,7 @@ function campo(lista, caminho, valor, status){
   lista.push({campo:caminho, valor: v||null, origem:"formulario", status: status || (v?"confirmado":"lacuna")});
 }
 async function exportar(nuvem){
-  const pend = listaPendencias();
+  const pend = textosPendencias();
   if(pend.length && !confirm(`Exportar mesmo com ${pend.length} pendência(s)?\n\n— `+pend.join("\n— "))) return;
   const d = coletar(), c = [], hoje = new Date().toISOString().slice(0,10);
   const g = id => (d.campos[id]||"").toString().trim();
@@ -1724,7 +1769,7 @@ async function exportar(nuvem){
       metodologia:true,                     // decisão de 18/08: METODOLOGIA sempre entra (o campo saiu do formulário na v5.8)
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.1.1-2026-08-27"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.2-2026-08-28"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
@@ -1753,7 +1798,7 @@ async function exportar(nuvem){
   else entregar(nomeArquivo(g,hoje), JSON.stringify(registro,null,2));
 }
 // exportou = terminou esta vistoria: o formulário abre uma nova em branco (pedido do Yoran,
-// 26/08). A exportada FICA na tela "Vistorias", com o carimbo de exportação — nada se perde.
+// 26/08). A exportada FICA na tela "Rascunhos", com o carimbo de exportação — nada se perde.
 function posExportar(){
   if(!IDX) return;
   novaVistoria();
@@ -1769,7 +1814,7 @@ async function entregar(nome, conteudo){
           + (r.anexo ? `\n${r.anexo} — arquivo do processo gravado junto` : "")
           + (r.referencia ? `\n${r.referencia} — documento de apoio gravado junto` : "")
           + (ANEXO && !ANEXO_FILE ? "\n\n⚠ a página foi recarregada desde o anexo: o arquivo do processo não foi junto e o texto exportado ficou no limite de 600 mil caracteres. Reanexe e exporte de novo se a montagem precisar do original ou do texto completo." : "")
-          + "\n\nO formulário vai abrir uma vistoria nova em branco — esta fica guardada na tela Vistorias.");
+          + "\n\nO formulário vai abrir uma vistoria nova em branco — esta fica guardada na tela Rascunhos.");
         posExportar();
         return;
       }
@@ -1804,7 +1849,7 @@ async function entregar(nome, conteudo){
           + (ANEXO && !ANEXO_FILE ? "\n\n⚠ a página foi recarregada desde o anexo: o arquivo do processo NÃO foi junto — mande-o à parte se a montagem precisar do original." : "")
           + (ANEXO_REF && !ANEXO_REF_FILE ? "\n⚠ o documento de apoio também não foi junto (mesmo motivo)." : "")
           + "\n\nAo tocar em OK o formulário abre uma vistoria nova em branco — "
-          + "esta fica guardada na tela Vistorias.");
+          + "esta fica guardada na tela Rascunhos.");
         posExportar();
       }).catch(()=>baixarOuCopiar(nome, conteudo));
       return;
@@ -1818,7 +1863,7 @@ function baixarOuCopiar(nome, conteudo){
     a.href=URL.createObjectURL(new Blob([conteudo],{type:"application/json;charset=utf-8"}));
     a.download=nome; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-    alert("Arquivo exportado: "+nome+"\nSalve no OneDrive, em Laudos → Troca → 1. Enviar — de lá ele chega ao desktop sozinho.\n\nO formulário vai abrir uma vistoria nova em branco — esta fica guardada na tela Vistorias.");
+    alert("Arquivo exportado: "+nome+"\nSalve no OneDrive, em Laudos → Troca → 1. Enviar — de lá ele chega ao desktop sozinho.\n\nO formulário vai abrir uma vistoria nova em branco — esta fica guardada na tela Rascunhos.");
     posExportar();
   }catch(e){ modalCopia(nome, conteudo); }   // na tela de cópia o formulário NÃO limpa (o perito ainda vai copiar)
 }
@@ -1922,12 +1967,12 @@ async function enviarNuvem(nome, conteudo){
       alert("Enviado ao escritório:\n"+nome+" ("+Math.max(1,Math.round(j.bytes/1024))+" KB)"
         +(ex.extras.length? "\nFoi junto: "+ex.extras.join(", ") : "")
         +(ex.faltas.length? "\n⚠ Não foi: "+ex.faltas.join("; ") : "")
-        +"\n\nO formulário vai abrir uma vistoria nova em branco — esta fica guardada na tela Vistorias.");
+        +"\n\nO formulário vai abrir uma vistoria nova em branco — esta fica guardada na tela Rascunhos.");
       posExportar();
     } else alert("O envio não foi aceito: "+(j.erro||("erro "+r.status))
-        +"\n\nSe estiver sem internet, use o botão Exportar arquivo.");
+        +"\n\nSe estiver sem internet, use o botão Exportar (dentro do +).");
   }catch(e){
-    alert("Sem conexão com o escritório ("+e.message+").\n\nUse o botão Exportar arquivo, ou tente de novo com internet.");
+    alert("Sem conexão com o escritório ("+e.message+").\n\nUse o botão Exportar (dentro do +), ou tente de novo com internet.");
   }
 }
 function brDataNome(nome){
@@ -1938,81 +1983,107 @@ function cnjDoNome(nome){
   const m=nome.match(/^(\d{7})(\d{2})(\d{4})(\d)(\d{2})(\d{4})_/);
   return m?`${m[1]}-${m[2]}.${m[3]}.${m[4]}.${m[5]}.${m[6]}`:nome.split("_")[0];
 }
-async function buscarNuvem(){
+/* ============ listas da nuvem (v6.2) — a raiz é o que está PENDENTE =========
+   A vistoria sai da lista quando o laudo dela sobe (montagem chama arquivar);
+   o laudo sai quando o perito baixa. O que saiu vive em historico/, atrás do
+   botão — sem isso as duas listas cresciam para sempre (Yoran, 28/08/2026).
+   As duas telas são a mesma função: só mudam o filtro, o rótulo e o que o
+   botão faz.                                                                */
+function kbNuvem(a){ return a.tamanho ? " · "+Math.max(1,Math.round(a.tamanho/1024))+" KB" : ""; }
+
+const TELAS_NUVEM = {
+  vistorias:{
+    titulo:"Vistorias no escritório",
+    dica:"Toque em Abrir para carregar no formulário — substitui o que estiver na vistoria aberta.",
+    vazio:"Nenhuma vistoria esperando no escritório.",
+    // só vistoria: laudo pronto e anexos do caso não entram nesta lista
+    filtro:a=>/_vistoria[.]json$/i.test(a.nome),
+    linha:a=>`<b>${esc(cnjDoNome(a.nome))}</b><div class="dica">vistoria ${esc(brDataNome(a.nome))}${kbNuvem(a)}</div>`,
+    rotulo:"Abrir", fazendo:"Abrindo…",
+    async executa(a, hist){
+      const rr=await nuvem("buscar", hist?{nome:a.nome,pasta:"historico"}:{nome:a.nome});
+      aplicarImportado(await rr.json());
+      return {fecha:true, aviso:"Vistoria carregada: "+cnjDoNome(a.nome)};
+    }
+  },
+  laudos:{
+    titulo:"Laudos prontos",
+    dica:"Toque em Baixar — o laudo abre em Word, para conferir e completar. Baixado, ele sai desta lista e fica no histórico.",
+    vazio:"Nenhum laudo pronto no escritório por enquanto.",
+    filtro:a=>/[.]docx$/i.test(a.nome) && !/_(processo|referencia)[.]/i.test(a.nome),
+    linha:a=>`<b>${esc(a.nome)}</b><div class="dica">${a.tamanho?Math.max(1,Math.round(a.tamanho/1024))+" KB":""}</div>`,
+    rotulo:"Baixar", fazendo:"Baixando…",
+    async executa(a, hist){
+      const rr=await nuvem("buscar", hist?{nome:a.nome,pasta:"historico"}:{nome:a.nome});
+      const blob=await rr.blob();
+      const u=URL.createObjectURL(blob), el=document.createElement("a");
+      el.href=u; el.download=a.nome; document.body.appendChild(el); el.click(); el.remove();
+      setTimeout(()=>URL.revokeObjectURL(u),8000);
+      // entregue: sai da lista principal. O corpo "" é só para virar POST.
+      if(!hist) await nuvem("arquivar",{nome:a.nome},"");
+      return {feito:"Baixado ✓"};
+    }
+  }
+};
+
+const NUVEM_TETO = 20;   // histórico: os mais recentes bastam para consulta
+
+async function telaNuvem(tipo, hist){
+  const t=TELAS_NUVEM[tipo];
   let r;
-  try{ r=await nuvem("listar"); }catch(e){
-    alert("Sem conexão com o escritório ("+e.message+"). Tente com internet, ou use Importar arquivo."); return;
+  try{ r=await nuvem("listar", hist?{pasta:"historico"}:undefined); }catch(e){
+    alert("Sem conexão com o escritório ("+e.message+")."
+      +(tipo==="vistorias"?"\n\nTente com internet, ou use Importar (dentro do +).":"")); return;
   }
   if(!r) return;
   const j=await r.json().catch(()=>({}));
   if(!r.ok){ alert("Não consegui listar: "+(j.erro||r.status)); return; }
-  if(!(j.arquivos||[]).length){ alert("Nenhuma vistoria guardada no escritório."); return; }
+  const itens=(j.arquivos||[]).filter(t.filtro);
+  if(!itens.length){
+    if(hist){ alert("Nada no histórico ainda."); return; }
+    if(!confirm(t.vazio+"\n\nVer o histórico?")) return;
+    return telaNuvem(tipo, true);
+  }
   let m=document.getElementById("modalNuvem");
   if(m) m.remove();
   m=document.createElement("div"); m.id="modalNuvem";
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99;display:flex;align-items:center;justify-content:center;padding:1rem";
   const cx=document.createElement("div");
   cx.style.cssText="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:1rem";
-  cx.innerHTML="<b>Vistorias no escritório</b><div class='dica'>Toque em Abrir para carregar no formulário — substitui o que estiver na vistoria aberta.</div>";
-  j.arquivos.forEach(a=>{
+  cx.innerHTML=`<b>${esc(t.titulo)}${hist?" — histórico":""}</b><div class="dica">`
+    +(hist?"Já cumpriram a função — ficam aqui para consulta.":esc(t.dica))+"</div>";
+  const mostra = hist ? itens.slice(0,NUVEM_TETO) : itens;
+  mostra.forEach(a=>{
     const d=document.createElement("div"); d.className="row-dyn";
-    d.innerHTML=`<b>${esc(cnjDoNome(a.nome))}</b><div class="dica">vistoria ${esc(brDataNome(a.nome))}`
-      +`${a.tamanho?" · "+Math.max(1,Math.round(a.tamanho/1024))+" KB":""}</div>`;
-    const b=document.createElement("button"); b.className="add"; b.type="button"; b.textContent="Abrir";
+    d.innerHTML=t.linha(a);
+    const b=document.createElement("button"); b.className="add"; b.type="button"; b.textContent=t.rotulo;
     b.onclick=async()=>{
-      b.disabled=true; b.textContent="Abrindo…";
+      b.disabled=true; b.textContent=t.fazendo;
       try{
-        const rr=await nuvem("buscar",{nome:a.nome});
-        const jj=await rr.json();
-        aplicarImportado(jj);
-        m.remove();
-        alert("Vistoria carregada: "+esc(cnjDoNome(a.nome)));
-      }catch(e){ alert("Não consegui abrir: "+e.message); b.disabled=false; b.textContent="Abrir"; }
+        const res=await t.executa(a, hist);
+        if(res.fecha){ m.remove(); if(res.aviso) alert(res.aviso); return; }
+        b.textContent=res.feito||"Pronto ✓";
+        d.style.opacity=".55";                 // já saiu da lista lá no escritório
+      }catch(e){ alert("Não consegui: "+e.message); b.disabled=false; b.textContent=t.rotulo; }
     };
     d.appendChild(b); cx.appendChild(d);
   });
+  if(itens.length>mostra.length)
+    cx.insertAdjacentHTML("beforeend",
+      `<div class="dica">mostrando ${mostra.length} de ${itens.length} — os mais recentes.</div>`);
+  const rodape=document.createElement("div");
+  rodape.style.cssText="display:flex;gap:.4rem;margin-top:.6rem";
+  const h=document.createElement("button"); h.className="add"; h.type="button";
+  h.textContent=hist?"← Pendentes":"Ver histórico";
+  h.onclick=()=>{ m.remove(); telaNuvem(tipo, !hist); };
   const f=document.createElement("button"); f.className="add"; f.type="button"; f.textContent="Fechar";
-  f.onclick=()=>m.remove(); cx.appendChild(f);
+  f.onclick=()=>m.remove();
+  rodape.appendChild(h); rodape.appendChild(f); cx.appendChild(rodape);
   m.appendChild(cx); document.body.appendChild(m);
 }
 
-async function laudosProntos(){
-  let r;
-  try{ r=await nuvem("listar"); }catch(e){
-    alert("Sem conexão com o escritório ("+e.message+"). Tente com internet."); return;
-  }
-  if(!r) return;
-  const j=await r.json().catch(()=>({}));
-  const docs=(j.arquivos||[]).filter(a=>/[.]docx$/i.test(a.nome) && !/_(processo|referencia)[.]/i.test(a.nome));
-  if(!docs.length){ alert("Nenhum laudo pronto no escritório por enquanto."); return; }
-  let m=document.getElementById("modalNuvem");
-  if(m) m.remove();
-  m=document.createElement("div"); m.id="modalNuvem";
-  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99;display:flex;align-items:center;justify-content:center;padding:1rem";
-  const cx=document.createElement("div");
-  cx.style.cssText="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:1rem";
-  cx.innerHTML="<b>Laudos prontos</b><div class='dica'>Toque em Baixar — o laudo abre em Word, para conferir e completar.</div>";
-  docs.forEach(a=>{
-    const d=document.createElement("div"); d.className="row-dyn";
-    d.innerHTML=`<b>${esc(a.nome)}</b><div class="dica">${a.tamanho?Math.max(1,Math.round(a.tamanho/1024))+" KB":""}</div>`;
-    const b=document.createElement("button"); b.className="add"; b.type="button"; b.textContent="Baixar";
-    b.onclick=async()=>{
-      b.disabled=true; b.textContent="Baixando…";
-      try{
-        const rr=await nuvem("buscar",{nome:a.nome});
-        const blob=await rr.blob();
-        const u=URL.createObjectURL(blob), el=document.createElement("a");
-        el.href=u; el.download=a.nome; document.body.appendChild(el); el.click(); el.remove();
-        setTimeout(()=>URL.revokeObjectURL(u),8000);
-        b.textContent="Baixado ✓";
-      }catch(e){ alert("Não consegui baixar: "+e.message); b.disabled=false; b.textContent="Baixar"; }
-    };
-    d.appendChild(b); cx.appendChild(d);
-  });
-  const f=document.createElement("button"); f.className="add"; f.type="button"; f.textContent="Fechar";
-  f.onclick=()=>m.remove(); cx.appendChild(f);
-  m.appendChild(cx); document.body.appendChild(m);
-}
+function buscarNuvem(){ return telaNuvem("vistorias", false); }
+function laudosProntos(){ return telaNuvem("laudos", false); }
 
 function aplicarImportado(j){
       if(j.backup_formulario && j.backup_formulario.campos){ aplicar(j.backup_formulario); }   // registro v3+: backup embutido
