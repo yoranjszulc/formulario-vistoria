@@ -80,6 +80,34 @@
   .fthumb img{width:100%;height:100%;object-fit:cover;display:block}
   .fthumb .rm{position:absolute;top:2px;right:2px;border:none;background:rgba(255,255,255,.9);border-radius:4px;cursor:pointer;font-size:.85rem;line-height:1;padding:.15rem .4rem}
   .fnum{color:var(--ok);font-weight:normal;font-size:.78rem}
+  /* ---- "A definir": os pontos que só o perito resolve, em abas por situação ---- */
+  #btADefinir.tem{background:#fff;color:var(--azul);border-color:#fff;font-weight:bold}
+  #telaADefinir{position:fixed;inset:0;background:var(--cinza);z-index:22;overflow:auto;
+    padding:0 0 calc(2rem + env(safe-area-inset-bottom))}
+  .ad-cab{position:sticky;top:0;z-index:2;background:var(--azul);color:#fff;
+    padding:.7rem .8rem 0;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+  .ad-cab h2{font-size:1.02rem;margin:0}
+  .ad-cab .sub{font-size:.76rem;opacity:.85;margin:.1rem 0 .5rem}
+  .ad-abas{display:flex;gap:.3rem;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .ad-abas button{font:inherit;font-size:.84rem;white-space:nowrap;cursor:pointer;flex:0 0 auto;
+    border:1px solid rgba(255,255,255,.5);border-bottom:none;background:transparent;color:#fff;
+    padding:.45rem .7rem;border-radius:8px 8px 0 0}
+  .ad-abas button.on{background:var(--cinza);color:var(--azul);border-color:var(--cinza);font-weight:bold}
+  .ad-abas button .n{font-size:.78rem;opacity:.85;margin-left:.3rem}
+  .ad-corpo{max-width:860px;margin:0 auto;padding:.6rem .8rem}
+  .ad-item{background:#fff;border:1px solid var(--borda);border-left:4px solid var(--erro);
+    border-radius:8px;padding:.7rem .8rem;margin:.6rem 0}
+  .ad-item.feito{border-left-color:var(--ok)}
+  .ad-item h4{margin:0 0 .1rem;font-size:.92rem;color:var(--azul)}
+  .ad-item .perg{font-size:.85rem;margin:.2rem 0 .5rem}
+  .ad-op{display:flex;align-items:flex-start;gap:.5rem;font-size:.88rem;margin:.35rem 0;
+    border:1px solid var(--borda);border-radius:6px;padding:.5rem;cursor:pointer;background:#fdfdfb}
+  .ad-op.marc{border-color:var(--azul);background:#eef3f8}
+  .ad-op input{margin-top:.25rem;flex:0 0 auto}
+  .ad-op .fonte{display:block;font-size:.75rem;color:#666;margin-top:.15rem}
+  .ad-vazio{background:#fff;border:1px solid var(--borda);border-radius:8px;padding:1rem;
+    text-align:center;font-size:.88rem;color:#555;margin:.8rem 0}
+  .ad-rodape{display:flex;gap:.5rem;flex-wrap:wrap;margin:.9rem 0 0}
 </style>
 </head>
 <body>
@@ -87,9 +115,10 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v6.2 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v6.8 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
+      <button type="button" id="btADefinir" class="oculto" onclick="abrirADefinir()">A definir</button>
       <button type="button" onclick="abrirRascunhos()">Rascunhos</button>
       <button type="button" onclick="abrirSecoes()">Seções</button>
     </div>
@@ -138,6 +167,8 @@
   <div class="valida" id="v_ref"></div>
   <div class="dica">Opcional. Não preenche campo nenhum: vai junto no Exportar e, na montagem
   do laudo, os campos extraídos do processo são conferidos contra ele.
+  <b>Laudo já pronto e só faltam os quesitos?</b> Anexe-o aqui junto com o processo e use o
+  botão <b>Só quesitos</b>, lá embaixo — não precisa preencher a vistoria.
   <a href="#" onclick="removerReferencia();return false">Remover documento de apoio</a></div>
   <label>Número do processo (CNJ) <b class="req">*</b></label>
   <input type="text" id="processo_numero_cnj" inputmode="numeric" placeholder="0000000-00.0000.0.00.0000" autocomplete="off">
@@ -270,7 +301,7 @@
 </div></details>
 
 <details id="sec-nr15"><summary>10. NR-15 — Avaliações ambientais <span class="falta"></span></summary><div class="corpo">
-  <div class="dica">Os 11 agentes precisam de resposta. "Sem fonte geradora" usa a frase padrão do agente. O que for texto próprio pode ser ditado pelo teclado.</div>
+  <div class="dica">Os 10 agentes precisam de resposta. "Sem fonte geradora" usa a frase padrão do agente. O que for texto próprio pode ser ditado pelo teclado.</div>
   <div id="grp_nr15"></div>
   <div class="fotoswrap" data-fsec="nr15" data-frotulo="Fotos das avaliações — FISPQs, embalagens, produtos"></div>
 </div></details>
@@ -349,6 +380,7 @@
 <div class="barra">
   <div class="barra-linha">
     <button id="btExportar" type="button" onclick="exportar(true)" title="Enviar esta vistoria ao escritório">Enviar</button>
+    <button id="btQuesitos" class="sec" type="button" onclick="soQuesitos()" title="O laudo já está formatado: enviar ao escritório só para resolver os quesitos">Só quesitos</button>
     <button id="btVistoria" class="sec" type="button" onclick="buscarNuvem()" title="Buscar uma vistoria no escritório">Vistoria</button>
     <button id="btMais" class="sec" type="button" onclick="alternarMais()" title="Mais ações" aria-label="Mais ações">+</button>
   </div>
@@ -376,12 +408,21 @@
   </div>
 </div>
 
+<div id="telaADefinir" class="oculto">
+  <div class="ad-cab">
+    <h2>A definir</h2>
+    <div class="sub" id="adSub"></div>
+    <div class="ad-abas" id="adAbas"></div>
+  </div>
+  <div class="ad-corpo" id="adCorpo"></div>
+</div>
+
 <script>
 "use strict";
 /* ============================== dados fixos ============================== */
 const AGENTES_NR15 = ["Ruído contínuo ou intermitente","Exposição ao calor","Iluminamento",
- "Radiações ionizantes","Radiações não ionizantes","Poeiras minerais","Vibrações","Frio",
- "Umidade","Agentes químicos","Agentes biológicos"];
+ "Radiações ionizantes","Radiações não ionizantes","Poeiras minerais","Vibrações",
+ "Umidade","Agentes químicos","Agentes biológicos"];   // Frio (era o 8) saiu em 07/09/2026
 const ITENS_NR16 = ["Explosivos","Inflamáveis","Radiações ionizantes ou substâncias radioativas",
  "Roubos e outras espécies de violência","Redes de linhas aéreas (SEP)","Redes de linhas subterrâneas (SEP)",
  "Inspeção, testes e ensaios em SEP","Usinas, geradoras, subestações e cabinas","Treinamento em instalações energizadas",
@@ -420,7 +461,7 @@ function infoRascunho(id){
     edit:ed, semExporte: ed>ex};
 }
 function brData(iso){ const m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:iso; }
-function fechaMenus(){ ["veu","menuSecoes","telaRascunhos"].forEach(i=>document.getElementById(i).classList.add("oculto")); fecharMais(); }
+function fechaMenus(){ ["veu","menuSecoes","telaRascunhos","telaADefinir"].forEach(i=>document.getElementById(i).classList.add("oculto")); fecharMais(); }
 function alternarMais(){ document.getElementById("maisAcoes").classList.toggle("oculto"); }
 function fecharMais(){ document.getElementById("maisAcoes").classList.add("oculto"); }
 function abrirRascunhos(){
@@ -489,10 +530,18 @@ const ROWS = {
   quesitos_reclamada:{campos:QUESITO_CAMPOS},
   quesitos_reclamada2:{campos:QUESITO_CAMPOS},
 };
+/* `__auto` marca a linha que veio do anexo do processo, e mora no DATASET, não na
+   classe .autofill: a classe é reaplicada por id no aplicar(), e linha dinâmica não
+   tem id — depois de um reload as caixas perdiam a marca, o resetAnexoCampos() (que
+   removia por .autofill) não achava mais nada, e a caixa do processo ANTERIOR
+   sobrevivia à troca de caso e saía no export como `confirmado`. Foi o que aconteceu
+   no caso Mecânica Industrial (02/09/2026), com os quesitos do Flash. O dataset vai
+   junto no coletar(), volta pelo aplicar() e sobrevive ao reload. */
 function addRow(tipo, valores){
   const cont = document.getElementById("lst_"+tipo);
   const div = document.createElement("div");
   div.className = "row-dyn"; div.dataset.tipo = tipo;
+  if(valores && valores.__auto) div.dataset.auto = "1";
   let h = '<button class="rm" type="button" onclick="this.parentNode.remove();salvar()">×</button>';
   for(const [k,rotulo,opt] of ROWS[tipo].campos){
     const v = valores && valores[k] ? valores[k] : "";
@@ -505,6 +554,10 @@ function addRow(tipo, valores){
       h += `<label>${rotulo}</label><input type="text" data-k="${k}" value="${esc(v)}">`;
   }
   div.innerHTML = h; cont.appendChild(div);
+  // linha do anexo entra amarela como qualquer campo extraído (resposta é do perito)
+  if(div.dataset.auto==="1")
+    div.querySelectorAll("input,textarea,select").forEach(x=>{
+      if(x.dataset.k!=="resposta" && x.value) x.classList.add("autofill"); });
   if(tipo==="ruido"){
     const inp = div.querySelector('[data-k="nivel"]');
     const fb = document.createElement("div"); fb.className="valida"; inp.after(fb);
@@ -569,8 +622,12 @@ let ANEXO_TEXTO_FULL=null;               // texto INTEIRO dos autos, só em mem�
                                          // (caso Taminco, 1,37M chars: a montagem precisava do fim)
 let ANEXO_REF=null;                      // documento de apoio do escritório (gabarito de conferência)
 let ANEXO_REF_FILE=null;                 // idem: o File não sobrevive ao localStorage
+let MODO_QUESITOS=false;                 // v6.8: botão "Só quesitos" — o laudo de apoio vira a BASE,
+                                         // e o escritório só transcreve e responde os quesitos
 let AUTO=new Set(), AUTO_DER=new Set();  // ids preenchidos pelo anexo / derivados do CNJ
 let AUTO_ORIG={};                        // id → origem "derivado:<regra>" (cidade, atividade por CNAE)
+let CHAVES_REC=[];                       // palavras-chave da razão social da reclamada:
+                                         // âncora de vizinhança do CNPJ, do CNAE e do grau de risco
 const ANEXO_CAP=600000;                  // limite de caracteres p/ caber no localStorage
 const REF_CAP=300000;                    // idem, para o documento de apoio
 function setAnexoMsg(txt,cls){ const fb=document.getElementById("v_anexo"); fb.textContent=txt; fb.className="valida "+(cls||""); }
@@ -663,12 +720,17 @@ async function textoDOCX(buf){
 }
 // trocar de anexo: o que o anexo ANTERIOR preencheu (e o perito ainda não conferiu —
 // segue amarelo) sai, senão o processo novo herda campo velho. Campo editado fica.
+/* Troca de processo: tudo que veio do anexo ANTERIOR sai. A remoção é pelo
+   `data-auto` da linha (ver addRow) — a versão que perguntava por `.autofill`
+   deixava passar toda caixa criada antes de um reload, e o processo seguinte
+   herdava os quesitos do anterior (caso Mecânica Industrial, 02/09/2026). */
 function resetAnexoCampos(){
-  if([...AUTO].some(k=>k.startsWith("protecao_epi[")))
-    document.querySelectorAll("#lst_epis .row-dyn").forEach(r=>{ if(r.querySelector("input.autofill")) r.remove(); });
+  document.querySelectorAll('#lst_epis .row-dyn[data-auto="1"]').forEach(r=>r.remove());
   ["reclamante","reclamada","reclamada2"].forEach(p=>{
-    if([...AUTO].some(k=>k.startsWith(`quesitos_${p}[`)))
-      document.querySelectorAll(`#lst_quesitos_${p} .row-dyn`).forEach(r=>{ if(r.querySelector(".autofill")) r.remove(); });
+    document.querySelectorAll(`#lst_quesitos_${p} .row-dyn[data-auto="1"]`).forEach(r=>r.remove());
+    // a colagem também é do processo que saiu
+    const el=document.getElementById("quesitos_colados_"+p);
+    if(el && AUTO.has("quesitos_colados_"+p)){ el.value=""; el.classList.remove("autofill"); }
   });
   [...AUTO,...AUTO_DER,...Object.keys(AUTO_ORIG)].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
@@ -739,6 +801,21 @@ async function anexarReferencia(ev){
   salvar();
 }
 function removerReferencia(){ ANEXO_REF=null; ANEXO_REF_FILE=null; setRefMsg(""); salvar(); }
+// "Só quesitos": o perito já tem o laudo formatado (anexado como documento de apoio).
+// Não exige a vistoria preenchida — exige o laudo em memória (é ele que o escritório
+// completa) e o processo (é de lá que saem os quesitos, com a numeração original).
+async function soQuesitos(){
+  if(!ANEXO_REF){ alert("Anexe primeiro o laudo já formatado, na seção 2 (Documento de apoio do escritório)."); return; }
+  if(!ANEXO_REF_FILE){ alert("A página foi recarregada desde que o laudo foi anexado e o arquivo não está mais em memória.\nReanexe o laudo formatado na seção 2 e clique de novo."); return; }
+  if(!(document.getElementById("processo_numero_cnj").value||"").trim()){
+    alert("Falta o número do processo (CNJ), na seção 2 — é por ele que o escritório acha o caso."); return; }
+  const temQuesitos = ANEXO || ["reclamante","reclamada","reclamada2"].some(p=>
+    (document.getElementById("quesitos_colados_"+p)||{}).value);
+  if(!temQuesitos && !confirm("Não há processo anexado nem quesitos colados — o escritório não terá de onde tirar os quesitos.\nEnviar mesmo assim?")) return;
+  if(!confirm(`Enviar ao escritório só para resolver os quesitos?\n\nLaudo base: ${ANEXO_REF.nome}\n\nOs quesitos entram no seu laudo com a numeração dos autos e respondidos a partir do que o próprio laudo conclui. O que o laudo não resolve volta marcado [AGUARDANDO DEFINIÇÃO DO PERITO].`)) return;
+  MODO_QUESITOS=true;
+  try{ await exportar(true); } finally { MODO_QUESITOS=false; }
+}
 function limpaNome(s){ return (s||"").replace(/\s+/g," ")
   .replace(/[,;.]?\s*(?:CPF|CNPJ|RG|CTPS)\b[\s\S]*$/i,"")
   .replace(/\s*\(\s*em\s+recupera[çc][ãa]o[\s\S]*$/i,"")
@@ -767,7 +844,7 @@ function fz(str){ return str.split("").map(c=>{
   return e+"[ \\t\\n]{0,3}"; }).join(""); }
 // linhas que o PJe (e o papel timbrado) carimbam em cada página — fora do texto útil
 function limparPJe(s){
-  return (s||"")
+  const bruto=(s||"")
     .replace(/^[^\S\n]*(?:Documento\s+)?[Aa]ssinado\s+eletronicamente\s+por[^\n]*$/gm,"")
     .replace(/^[^\S\n]*https?:\/\/[^\n]*$/gm,"")
     .replace(/^[^\S\n]*N[úu]mero\s+do\s+(?:processo|documento)\s*:[^\n]*$/gim,"")
@@ -779,7 +856,46 @@ function limparPJe(s){
     .replace(/^[^\S\n]*TRIBUNAL\s+REGIONAL\s+DO\s+TRABALHO[^\n]*$/gim,"")
     .replace(/^[^\S\n]*(?:ATOrd|ATSum|RTOrd|RTSum)\s+\d{6,7}[^\n]*$/gm,"")
     .replace(/^[^\S\n]*PAGINA_CAPA_PROCESSO_PJE[^\n]*$/gm,"")
-    .replace(/[ \t]+$/gm,"").replace(/\n{3,}/g,"\n\n").trim();
+    .replace(/[ \t]+$/gm,"");
+  return tiraRodapeAdvogado(bruto).replace(/\n{3,}/g,"\n\n").trim();
+}
+/* Papel timbrado do escritório embutido NO MEIO da pergunta. O carimbo do PJe já saía
+   acima; o rodapé do advogado, não — e ele veio colado ao fim do quesito 1 no caso
+   Peralta (29/08) e dentro dos quesitos 4, 11 e 19 no caso Sendas (29/08), com a linha
+   do nome em caixa alta virando "grupo" dos quesitos seguintes.
+   Sai a linha que se identifica sozinha (OAB, telefone, e-mail, site, @perfil) e o
+   endereço ENCOSTADO nela — "Rua tal, nº tal" solto no meio de um quesito é do quesito,
+   e por isso o endereço nunca sai sozinho. */
+function tiraRodapeAdvogado(s){
+  const ln=String(s||"").split("\n");
+  const OAB=/\bOAB\s*[\/:\-]?\s*[A-Z]{2}\b|\bOAB\s*(?:n[º°.]?\s*)?\d{2,}/i;
+  const SO_EMAIL=/^[^\S\n]*[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}[^\S\n]*\d{0,3}[^\S\n]*$/;
+  const SO_FONE=/^[^\S\n]*(?:tel(?:efone)?|fone|cel)?\.?[:\s]*(?:\+?55[\s.-]?)?\(?\d{2}\)?[\s.-]?\d{4,5}[\s.-]?\d{4}[^\S\n]*\d{0,3}[^\S\n]*$/i;
+  const SO_SITE=/^[^\S\n]*(?:www\.\S+|https?:\/\/\S+|@[A-Za-z0-9._]{3,})[^\S\n]*\d{0,3}[^\S\n]*$/;
+  const ENDER=/^[^\S\n]*(?:R(?:ua)?\.?|Av(?:enida)?\.?|Al(?:ameda)?\.?|Pra[çc]a|Rod(?:ovia)?\.?|Trav(?:essa)?\.?)[^\S\n]+\S[^\n]{4,90}$|CEP[^\n]{0,12}\d{5}/i;
+  const fora=new Set();
+  ln.forEach((l,i)=>{ if(OAB.test(l)||SO_EMAIL.test(l)||SO_FONE.test(l)||SO_SITE.test(l)) fora.add(i); });
+  if(!fora.size) return s;
+  for(let passo=0; passo<4; passo++){        // o bloco pode ter 2–3 linhas de endereço
+    let mudou=false;
+    for(const i of [...fora]) for(const j of [i-1,i+1])
+      if(j>=0 && j<ln.length && !fora.has(j) && ln[j].trim() && ENDER.test(ln[j])){ fora.add(j); mudou=true; }
+    if(!mudou) break;
+  }
+  return ln.filter((_,i)=>!fora.has(i)).join("\n");
+}
+/* Marca de resposta: "R.:", "R:", "R.", "R;", "Resposta:". Rol COM respostas é laudo
+   transcrito nos autos, não rol de parte — o formulário o descarta. O reconhecimento
+   exigia dois-pontos e deixava passar o "R." puro: foi por aí que o laudo do processo
+   conexo entrou no caso Fundação Casa (26/08), com 10 falsos quesitos a mais.
+   A guarda do "R." de logradouro ("R. Tapajós, 561") existe porque descartar um rol
+   inteiro por engano é pior do que importar um a mais. */
+const RE_RESP=/(?:^|\n)[^\S\n]{0,40}R(?:esposta)?[^\S\n]*([.:;])[^\S\n]*([^\n]{0,40})/gi;
+function ehLogradouro(sep,resto){
+  return sep==="." && /^[A-ZÀ-Ü][a-zà-ü]{2,}[,\s]+(?:n[º°.]?[^\S\n]*)?\d/.test(resto||"");
+}
+function marcasResposta(txt){
+  return [...String(txt||"").matchAll(RE_RESP)].filter(m=>!ehLogradouro(m[1],m[2]));
 }
 // advogados da capa do PJe, separados por parte (1ª e 2ª reclamadas) → autoria dos quesitos
 function advogadosCapa(t){
@@ -869,12 +985,32 @@ function extrairAtaMeta(t, feitos){
   for(const m of t.matchAll(/ATA DE AUDI[ÊE]NCIA|TERMO DE AUDI[ÊE]NCIA/gi)){
     const pv=cnjAntes(m.index);
     if(cnjProc && pv && pv.n!==cnjProc) continue;        // ata de processo embutido nos autos
+    // A âncora tem de ser LINHA DE TÍTULO. As partes citam "na Ata de Audiência" o tempo
+    // todo no meio das petições, e cada citação abria um segmento de 12.000 chars sobre
+    // texto que não é ata: no caso Silmafer são 1 ata de verdade e 6 citações, e foi de
+    // uma delas que saiu o "insalubridade" — de um pedido para o laudo observar "a
+    // distinção técnica entre insalubridade e periculosidade", que não determina nada.
+    // Mesma lição do REN02 do verificar_render, no outro extrator.
+    { const li=t.lastIndexOf("\n", m.index)+1;
+      let lf=t.indexOf("\n", m.index); if(lf<0) lf=t.length;
+      const linha=t.slice(li,lf).trim();
+      if(linha.length>80 || linha!==linha.toUpperCase()) continue; }
     let seg=t.slice(m.index, m.index+12000);
-    const c=seg.match(/\n[^\S\n]*(?:PROCURA[ÇC][ÃA]O|SUBSTABELECIMENTO|CARTA DE PREPOSI[ÇC][ÃA]O|CONTESTA[ÇC][ÃA]O|ATESTADO)[^\S\n]*\n/);
-    if(c) seg=seg.slice(0,c.index);                      // título de peça seguinte encerra a ata
+    // Título da peça seguinte encerra a ata. A lista ganhou os cabeçalhos de PETIÇÃO
+    // (que começam por "EXCELENTÍSSIMO…") porque o segmento de 12.000 chars alcança a
+    // peça de baixo: no Silmafer a petição estava 18k adiante e escapou por sorte, mas
+    // basta ela vir logo abaixo para "a distinção técnica entre insalubridade e
+    // periculosidade" voltar a entrar como se fosse determinação (medido pelo AUT08).
+    const c=seg.match(/\n[^\S\n]*(?:(?:PROCURA[ÇC][ÃA]O|SUBSTABELECIMENTO|CARTA DE PREPOSI[ÇC][ÃA]O|CONTESTA[ÇC][ÃA]O|ATESTADO)[^\S\n]*|(?:EXCELENT[ÍI]SSIM[OA]|PETI[ÇC][ÃA]O|REQUERIMENTO|MANIFESTA[ÇC][ÃA]O|R[ÉE]PLICA|EMBARGOS|RAZ[ÕO]ES FINAIS)[^\n]*)\n/);
+    if(c) seg=seg.slice(0,c.index);
     for(const d of seg.matchAll(/insalubr\w+|periculos\w+/gi)){
       const ctx=seg.slice(Math.max(0,d.index-160), d.index+160);
-      if(/e\s*\/\s*ou/.test(ctx)) continue;              // "(insalubridade e/ou periculosidade)" é boilerplate
+      // "e/ou" DENTRO da ata é determinação dos dois, não boilerplate. O descarte da
+      // v5.6 existia porque "(insalubridade e/ou periculosidade)" é frase feita de
+      // petição — e petição não entra mais aqui, desde que a âncora virou linha de
+      // título. O caso Taminco tem a determinação real "Tendo em vista a arguição de
+      // insalubridade e/ou periculosidade… impõe-se a realização de perícia" (ata na
+      // pág. 648 dos autos), e o laudo dele traz NR-15 e NR-16: são os dois mesmo.
       if(/determin|nomead|nomei|argui[çc]|apura[çc]/i.test(ctx))
         det.add(/^insalubr/i.test(d[0])?"insalubridade":"periculosidade");
     }
@@ -976,31 +1112,58 @@ function autoPreencher(t){
     const nr=document.getElementById("meta_n_reclamadas");
     if(nr.value!=="2"){ nr.value="2"; AUTO.add("meta_n_reclamadas"); nr.classList.add("autofill"); mudaReclamadas(); } }
   // CNPJ: só na vizinhança da razão social da reclamada — a 1ª ocorrência global era o
-  // CNPJ do SINDICATO da CCT no 1001019 (teste 18/08)
+  // CNPJ do SINDICATO da CCT no 1001019 (teste 18/08). E o candidato só é gravado se
+  // FECHAR CONSIGO MESMO (14 dígitos + dígito verificador): o laudo do caso Flash saiu
+  // com "73.160.269/0001-092" (31/08) — 15 dígitos, e a própria extração já havia
+  // registrado a divergência. Número que não fecha não é dado, é ruído da camada de
+  // texto do PDF; o formulário já cobra o mesmo do CNJ, pelo mod-97.
+  const nrmRec=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
   {
-    const nrm=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
     const GEN=new Set(["LTDA","LIMITADA","EIRELI","COMERCIO","INDUSTRIA","SERVICOS","SOCIEDADE","ANONIMA","BRASIL","EMPRESA",
       "INCORPORADORA","CONSTRUTORA","DISTRIBUIDORA","ADMINISTRADORA","PARTICIPACOES","ENGENHARIA","TRANSPORTES","LOGISTICA","IMOBILIARIA","HOLDING","GRUPO","COMPANHIA"]);
-    const chaves=(nrm(document.getElementById("processo_reclamada").value||"").match(/[A-Z0-9]{5,}/g)||[]).filter(x=>!GEN.has(x));
-    if(chaves.length){
-      const cs=new Map();
+    CHAVES_REC=(nrmRec(document.getElementById("processo_reclamada").value||"").match(/[A-Z0-9]{5,}/g)||[]).filter(x=>!GEN.has(x));
+    if(CHAVES_REC.length){
+      /* A vizinhança sozinha não basta: em lista de empresas (signatárias de CCT,
+         página da JUCESP, rol de fornecedores) o nome da reclamada cai a menos de 260
+         chars de dezenas de CNPJs — no caso Silmafer, 32 deles. Quem decide é a
+         FREQUÊNCIA, por raiz de 8 dígitos: o CNPJ da reclamada aparece na qualificação,
+         na contestação, na procuração e no cartão; o da empresa citada de passagem
+         aparece uma vez. Empate entre raízes é ambiguidade de verdade — aí o campo
+         fica em branco e a escolha volta ao perito. */
+      const cs=new Map();                       // 14 dígitos → {fmt, n, i}
       for(const x of t.matchAll(/CNPJ[^\n\d]{0,30}\d[\d. \/\-\n]{10,24}\d/gi)){
-        const ctx=nrm(t.slice(Math.max(0,x.index-260), x.index+40));
-        if(!chaves.some(k=>ctx.includes(k))) continue;
-        const v=juntaLin(x[0]).match(/(\d[\d. \/\-]{12,20}\d)/);
-        if(v){ const val=v[1].replace(/\s+/g,""), k=val.replace(/\D/g,"");
-          if(k.length>=12 && !cs.has(k)) cs.set(k,val); }
+        const ctx=nrmRec(t.slice(Math.max(0,x.index-260), x.index+40));
+        if(!CHAVES_REC.some(k=>ctx.includes(k))) continue;
+        const v=juntaLin(x[0]).match(/(\d[\d. \/\-]{12,22}\d)/);
+        if(!v) continue;
+        const d=normalizaCNPJ(v[1]);            // null = não fecha: não entra
+        if(!d) continue;
+        const o=cs.get(d);
+        if(o) o.n++; else cs.set(d, {fmt:formataCNPJ(d), n:1, i:x.index});
       }
-      // valor truncado que é prefixo de um completo não é divergência, é o mesmo CNPJ
-      let cv=[...cs.entries()].filter(([k])=>![...cs.keys()].some(o=>o!==k&&o.startsWith(k))).map(([,v])=>v);
-      // mesma raiz de 8 dígitos = matriz × filial da MESMA empresa: aviso próprio
-      // (a filial costuma ser o local vistoriado)
-      const raizes=new Set(cv.map(v=>v.replace(/\D/g,"").slice(0,8)));
-      if(cv.length>1 && raizes.size===1){
-        if(ANEXO){ ANEXO.divergencias=ANEXO.divergencias||[]; ANEXO.divergencias.push({campo:"reclamada.cnpj", tipo:"matriz_filial", valores:cv}); }
-        poe("reclamada_cnpj", cv[0], `CNPJ (⚠ matriz × filial: ${cv.join(" ≠ ")} — conferir qual é a do local vistoriado)`, feitos);
+      const raizes=new Map();
+      for(const par of cs){ const r=par[0].slice(0,8);
+        const g=raizes.get(r) || {n:0, itens:[]};
+        g.n+=par[1].n; g.itens.push(par[1]); raizes.set(r,g); }
+      const rank=[...raizes.values()].sort((a,b)=>b.n-a.n);
+      if(rank.length && (rank.length===1 || rank[0].n>rank[1].n)){
+        const itens=rank[0].itens.sort((a,b)=>a.i-b.i), cv=itens.map(o=>o.fmt);
+        // mesma raiz com sufixos diferentes = matriz × filial da MESMA empresa: aviso
+        // próprio (a filial costuma ser o local vistoriado)
+        if(cv.length>1){
+          if(ANEXO){ ANEXO.divergencias=ANEXO.divergencias||[]; ANEXO.divergencias.push({campo:"reclamada.cnpj", tipo:"matriz_filial", valores:cv}); }
+          poe("reclamada_cnpj", cv[0], `CNPJ (⚠ matriz × filial: ${cv.join(" ≠ ")} — conferir qual é a do local vistoriado)`, feitos);
+        }
+        else poe("reclamada_cnpj", cv[0], "CNPJ (dos autos — conferir)", feitos);
       }
-      else if(cv.length) poe("reclamada_cnpj", cv[0], marcaDiv("reclamada.cnpj","CNPJ",cv), feitos);
+      else if(rank.length>1){
+        // duas empresas diferentes empatadas: o formulário não arbitra qual é a
+        // reclamada. Registra a divergência e deixa o campo VAZIO — gravar o primeiro
+        // é escolher em silêncio, e campo vazio o perito vê; campo errado, não.
+        const cv=rank.filter(g=>g.n===rank[0].n).map(g=>g.itens[0].fmt);
+        if(ANEXO){ ANEXO.divergencias=ANEXO.divergencias||[]; ANEXO.divergencias.push({campo:"reclamada.cnpj", valores:cv}); }
+        feitos.push(`CNPJ deixado EM BRANCO (⚠ candidatos empatados nos autos: ${cv.join(" ≠ ")} — preencher na conferência)`);
+      }
     }
   }
   // admissão/demissão: verbo pode vir longe da data ("admitido pelas Reclamadas no dia…",
@@ -1018,16 +1181,28 @@ function autoPreencher(t){
     const iso=x=>dataISO(x[1]);
     const isoExt=x=>MESES[x[2].toLowerCase()] ? `${x[3]}-${String(MESES[x[2].toLowerCase()]).padStart(2,"0")}-${x[1].padStart(2,"0")}` : null;
     // (?!s): "TRABALHADORES admitidos a partir de…" é cláusula de CCT, não o vínculo
-    const adms=achaDatas(/admitid[oa](?!s)[^\n.;]{0,60}?(?:\bem|\bno dia|\bna data de)\s+(\d{2}\/\d{2}\/\d{4})/gi, iso)
-      .concat(achaDatas(/admitid[oa](?!s)[^\n.;]{0,60}?(?:\bem|\bno dia|\bna data de)\s+(\d{1,2})\s*de\s*([a-zç]+)\s*de\s*(\d{4})/gi, isoExt))
+    // "aos 08/02/2006" é como a petição inicial escreve, e o conector não estava na
+    // lista: no caso Fundação Casa só casava o "em 06/03/2006" da CONTESTAÇÃO, e a
+    // data da inicial — a que o eSocial confirma — nunca era vista.
+    const CONECTOR="(?:\\bem|\\bno dia|\\bna data de|\\baos?)";
+    const adms=achaDatas(new RegExp("admitid[oa](?!s)[^\\n.;]{0,60}?"+CONECTOR+"\\s+(\\d{2}\\/\\d{2}\\/\\d{4})","gi"), iso)
+      .concat(achaDatas(new RegExp("admitid[oa](?!s)[^\\n.;]{0,60}?"+CONECTOR+"\\s+(\\d{1,2})\\s*de\\s*([a-zç]+)\\s*de\\s*(\\d{4})","gi"), isoExt))
       .filter((v,i,a)=>a.indexOf(v)===i);
-    let dems=achaDatas(/(?:demitid[oa]|dispensad[oa]|desligad[oa])(?!s)[^\n.;]{0,60}?(?:\bem|\bno dia|\bna data de)\s+(\d{2}\/\d{2}\/\d{4})/gi, iso)
+    let dems=achaDatas(new RegExp("(?:demitid[oa]|dispensad[oa]|desligad[oa])(?!s)[^\\n.;]{0,60}?"+CONECTOR+"\\s+(\\d{2}\\/\\d{2}\\/\\d{4})","gi"), iso)
       .concat(achaDatas(/(\d{2}\/\d{2}\/\d{4})[^\n]{0,40}?foi\s+(?:demitid|dispensad|desligad)/gi, iso))
       .filter((v,i,a)=>a.indexOf(v)===i);
-    const adm=adms[0]||null;
+    // Desempate por evidência, como no CNPJ: a data verdadeira do vínculo se repete
+    // pelos autos (inicial, CNIS, eSocial, ficha, TRCT); a de uma peça isolada aparece
+    // uma vez. Fundação Casa: 08/02/2006 em 31 lugares × 06/03/2006 em 1 — e a ordem
+    // de documento entregava a segunda. Empate mantém a ordem dos autos (sort estável).
+    const freq=v=>{ const br=`${v.slice(8,10)}/${v.slice(5,7)}/${v.slice(0,4)}`;
+      return (tD.match(new RegExp(br.replace(/\//g,"\\/"),"g"))||[]).length; };
+    const porFreq=a=>a.slice().sort((x,y)=>freq(y)-freq(x));
+    const adm=porFreq(adms)[0]||null;
     if(adm) dems=dems.filter(v=>v>=adm);       // demissão anterior à admissão = lixo
     if(adm) poe("vinculo_admissao", adm, marcaDiv("vinculo.admissao","admissão",adms), feitos);
-    if(dems.length) poe("vinculo_demissao", dems[0], marcaDiv("vinculo.demissao","demissão",dems), feitos);
+    const dem=porFreq(dems)[0]||null;
+    if(dem) poe("vinculo_demissao", dem, marcaDiv("vinculo.demissao","demissão",dems), feitos);
   }
   m=t.match(/fun[çc][ãa]o\s+de\s+([A-Za-zÀ-ü][^\n,.;()]{2,60})/i);
   if(m) poe("vinculo_funcao", limpaNome(m[1]), "função", feitos);
@@ -1040,10 +1215,26 @@ function autoPreencher(t){
     if(/\d/.test(jc) && !/s[úu]mula|artigos?\s*62|cl[áa]usul|caf[ée]/i.test(jc))
       poe("vinculo_jornada", jc, "jornada (dos autos — conferir)", feitos);
   }
-  // honorários: só a fixação judicial dos periciais — pedido de parte não vale
-  m=t.match(/(?:fix|arbitr)\w*[^\n]{0,80}?honor[áa]rios(?:\s+periciais)?[^\n]{0,60}?R\$\s*([\d.]+(?:,\d{2})?)/i)
-   || t.match(/honor[áa]rios\s+periciais[^\n]{0,80}?(?:fixad|arbitrad)\w*[^\n]{0,40}?R\$\s*([\d.]+(?:,\d{2})?)/i);
-  if(m) poe("processo_honorarios", m[1], "honorários (fixação — conferir)", feitos);
+  // honorários: só a fixação JUDICIAL dos periciais. A intenção já era essa, mas o
+  // verbo sozinho não distingue quem arbitrou: no caso Fundação Casa (26/08/2026) o
+  // campo saiu R$ 1.500,00, que é o valor que a RECLAMADA pediu na contestação
+  // ("requisite-se … honorários periciais, ora arbitrados em quantia equivalente a…")
+  // e que também aparece como cláusula penal de um contrato juntado aos autos.
+  // Agora a vizinhança tem de trazer marca de juízo e NÃO trazer marca de pedido de
+  // parte. Sem as duas coisas o campo fica vazio — que é o padrão dele ("em branco =
+  // confirmar com o perito"), e quem fixa honorários é o juízo, não a peça.
+  {
+    const JUIZO=/\bju[íi]zo\b|\barbitro\b|\bfixo\b|defiro|homologo|determino|fica(?:m)?\s+(?:arbitrad|fixad)|condeno/i;
+    const PEDIDO=/requer|requeir|requisit|pugna|pleitei|ora\s+arbitrad|sejam\s+arbitrad|quantia\s+equivalente|protesta|cl[áa]usula\s+penal/i;
+    const RES=[/(?:fix|arbitr)\w*[^\n]{0,80}?honor[áa]rios(?:\s+periciais)?[^\n]{0,60}?R\$\s*([\d.]+(?:,\d{2})?)/gi,
+               /honor[áa]rios\s+periciais[^\n]{0,80}?(?:fixad|arbitrad)\w*[^\n]{0,40}?R\$\s*([\d.]+(?:,\d{2})?)/gi];
+    let achou=null;
+    for(const re of RES){ for(const x of t.matchAll(re)){
+      const ctx=t.slice(Math.max(0,x.index-300), x.index+x[0].length+200);
+      if(PEDIDO.test(ctx) || !JUIZO.test(ctx)) continue;
+      achou=x[1]; break; } if(achou) break; }
+    if(achou) poe("processo_honorarios", achou, "honorários (fixação judicial — conferir)", feitos);
+  }
   // vistoria já agendada — petição do próprio perito nos autos é a melhor fonte
   { const todas=[...t.matchAll(new RegExp(fz("perícia será realizada no dia")+"\\s*([\\d\\s\\/]{8,20})","gi"))];
     m=todas.length?todas[todas.length-1]:null; }   // remarcada? vale a ÚLTIMA petição do perito (teste 18/08)
@@ -1064,15 +1255,45 @@ function autoPreencher(t){
     poe("reclamada_endereco", juntaPal(sq(juntaDig(m[1]))), "endereço vistoriado (pedido da inicial — conferir)", feitos);
   m=t.match(/(?:estabelecid[ao]|com sede|sediad[ao])\s+(?:na|no|à|a|em)\s+([^\n]{10,140}?CEP[.:\s]*[\d.\- ]{8,12})/i);
   if(m) poe("reclamada_endereco", juntaPal(sq(juntaDig(m[1]))), "endereço da reclamada (sede — confirmar se é o vistoriado)", feitos);
-  // reclamada como pessoa jurídica — pode vir de laudo juntado aos autos (até de processo
-  // conexo, mesmas reclamadas): entra amarelo e aguardando o perito, sempre conferir
-  m=t.match(new RegExp(fz("Atividade principal")+"\\s*:?\\s*([^\\n;]{4,90})","i"));
-  if(m) poe("reclamada_atividade", sq(m[1]).replace(/[;.,]+$/,""), "atividade principal (dos autos — conferir)", feitos);
-  m=t.match(new RegExp(fz("Código de atividade")+"\\s*:?\\s*([\\d\\s.\\-\\/]{4,16})","i"))
-   || t.match(/CNAE[^\d\n]{0,15}([\d\s.\-\/]{4,16})/i);
-  if(m) poe("reclamada_cnae", juntaDig(m[1]).replace(/[^\d.\-\/]/g,"").replace(/\D+$/,""), "CNAE (dos autos — conferir)", feitos);
-  m=t.match(new RegExp(fz("Grau de risco")+"\\s*:?\\s*0?\\s*([1-4])","i"));
-  if(m) poe("reclamada_grau_risco", m[1], "grau de risco (dos autos — conferir)", feitos);
+  // Atividade principal, CNAE e grau de risco: SÓ na vizinhança da reclamada — a mesma
+  // técnica que já resolvia o CNPJ. A primeira ocorrência global trouxe o CNAE de OUTRA
+  // empresa três vezes: "09" (Flash, 31/08), "3250" da POLI-FERR, citada num laudo do IPT
+  // juntado aos autos (Mecânica Industrial, 02/09), e "4642" do fabricante de EPI cujo
+  // certificado de C.A. veio com a defesa (Peralta, 29/08). A "atividade principal" do
+  // Silmafer (26/08) saiu igual, de uma cláusula de CCT. Sem âncora da reclamada, nada
+  // é preenchido: campo vazio o perito vê na conferência; campo errado, não.
+  {
+    const cnpjRec=(document.getElementById("reclamada_cnpj").value||"").replace(/\D/g,"");
+    const perto=i=>{
+      const bruto=t.slice(Math.max(0,i-320), i+120);
+      if(CHAVES_REC.length && CHAVES_REC.some(k=>nrmRec(bruto).includes(k))) return true;
+      return cnpjRec.length===14 && bruto.replace(/\D/g,"").includes(cnpjRec);
+    };
+    const achaPerto=re=>{ for(const x of t.matchAll(re)) if(perto(x.index)) return x; return null; };
+    m=achaPerto(new RegExp(fz("Atividade principal")+"\\s*:?\\s*([^\\n;]{4,90})","gi"));
+    if(m) poe("reclamada_atividade", sq(m[1]).replace(/[;.,]+$/,""), "atividade principal (dos autos — conferir)", feitos);
+    // CNAE só nas formas canônicas (nn.nn-n/nn, nnnn-n/nn, nn.nn-n): a captura larga
+    // "[\d\s.\-/]{4,16}" devolvia sobra do texto ao lado — foi ela que virou "09"
+    // O rótulo quase nunca encosta no número (o PDF põe quebra de linha entre eles), e a
+    // gramática precisa recusar CNPJ: sem o veto de "seguido de mais dígito", o
+    // "73.160.269/0001-09" do PPP virava o CNAE "73.16-0". O rótulo aceita "C.N.A.E."
+    // ponto a ponto, que é como a ficha de registro do caso Flash o grafa.
+    const SEP="[\\s]*[.\\-\\/]?[\\s]*";
+    const NUM7="\\d{2}"+SEP+"\\d{2}"+SEP+"\\d"+SEP+"\\d{2}";
+    const NUM5="\\d{2}"+SEP+"\\d{2}"+SEP+"\\d";
+    const reCNAE=new RegExp("(?:"+fz("Código de atividade")+"|"+fz("Atividade econômica")
+      +"|C\\.?\\s*N\\.?\\s*A\\.?\\s*E\\.?)[^\\d]{0,40}("+NUM7+"|"+NUM5+")"
+      +"(?![\\s]*[.\\-\\/]?[\\s]*\\d)","gi");
+    m=achaPerto(reCNAE);
+    if(m){
+      const dg=m[1].replace(/\D/g,"");
+      const cnae = dg.length===7 ? dg.replace(/^(\d{2})(\d{2})(\d)(\d{2})$/,"$1.$2-$3/$4")
+                 : dg.length===5 ? dg.replace(/^(\d{2})(\d{2})(\d)$/,"$1.$2-$3") : "";
+      if(cnae) poe("reclamada_cnae", cnae, "CNAE (dos autos — conferir)", feitos);
+    }
+    m=achaPerto(new RegExp(fz("Grau de risco")+"\\s*:?\\s*0?\\s*([1-4])","gi"));
+    if(m) poe("reclamada_grau_risco", m[1], "grau de risco (dos autos — conferir)", feitos);
+  }
   // CNAE veio mas a atividade não: deduz pela tabela do IBGE (online, assíncrono)
   if(document.getElementById("reclamada_cnae").value && !document.getElementById("reclamada_atividade").value)
     atividadePorCNAE();
@@ -1087,9 +1308,8 @@ function autoPreencher(t){
       if(vE.has(k)) continue; vE.add(k); eps.push({nome,ca});
     }
     if(eps.length && eps.length<=15){
-      eps.forEach((e,i)=>{ addRow("epis",{nome:e.nome,ca:e.ca});
+      eps.forEach((e,i)=>{ addRow("epis",{nome:e.nome,ca:e.ca,__auto:1});
         AUTO.add(`protecao_epi[${i+1}]_nome`); AUTO.add(`protecao_epi[${i+1}]_ca`); });
-      lstEpis.querySelectorAll("input").forEach(inp=>inp.classList.add("autofill"));
       feitos.push(`EPIs com C.A. (${eps.length}, dos autos — conferir na vistoria)`);
     }
   }
@@ -1165,8 +1385,10 @@ function extrairQuesitos(t, feitos, advs){
     // limite 1800 (era 600): preâmbulo legítimo — endereço + nomeação de assistente —
     // chegava a ~1.700 chars antes do 1º item (caso 1001191)
     if(itens.length<2 || itens[0].index>1800) continue;      // rol de verdade enumera logo abaixo
-    // rol com respostas ("R.:") = transcrição de laudo juntado, não é rol das partes
-    if((ch.match(/(?:^|\n)[^\S\n]{0,40}R(?:esposta)?[^\S\n]*\.?[^\S\n]*:/gi)||[]).length>=2) continue;
+    // rol com respostas ("R.:", "R.", "R:") = transcrição de laudo juntado, não é rol
+    // das partes (ver marcasResposta: o "R." puro passava e trouxe o laudo conexo do
+    // caso Fundação Casa junto com o rol de verdade)
+    if(marcasResposta(ch).length>=2) continue;
     const ult=itens[itens.length-1].index;
     const fimItem=ch.indexOf("\n", ult+1);                   // fim da 1ª linha do último item
     if(fimItem>0){
@@ -1251,12 +1473,20 @@ function segmentaQuesitos(parte, autoAnexo){
     const s=lnRaw.trim();
     if(!s || /^-{4,}$/.test(s)) continue;                        // vazio / separador de blocos
     if(/^(?:Termos em que|Nestes termos|Pede[\s\-]*deferimento|P\.\s*deferimento)/i.test(s)){ atual=null; continue; }
+    // subitem por numeração decimal do próprio quesito ("5.1" sob o quesito 5): mesma
+    // box, como já era com "a)". Sem isto o "5.1 - texto" virava box nova de número 5
+    // com o texto começando em "1 -", e o mesmo rol saía com 15 caixas aqui contra 10
+    // do segmentador (caso Flash, 31/08). O inteiro TEM de ser o número da box aberta:
+    // é o que separa subitem de artigo de norma citado ("6.6.1 da NR-6", caso Sendas).
+    let mDec=s.match(/^(\d{1,3})\.(\d{1,2})[^\S\n]*[).\-–]?[^\S\n]*(\S.*)$/);
+    if(mDec && atual && atual.resposta===undefined && mDec[1]===atual.numero){
+      atual.pergunta+="\n"+s; continue; }
     let m=s.match(reIni);
     if(m){ atual={numero:m[1]||"", grupo, pergunta:m[2]}; itens.push(atual); continue; }
     m=s.match(reSub);
     if(m && atual && atual.resposta===undefined){ atual.pergunta+="\n"+s; continue; }  // subitem: mesma box
-    m=s.match(/^R(?:esposta)?[^\S\n]*\.?[^\S\n]*:[^\S\n]*(.*)$/i);
-    if(m && atual){ atual.resposta=(atual.resposta?atual.resposta+" ":"")+(m[1]||""); continue; }
+    m=s.match(/^R(?:esposta)?[^\S\n]*([.:;])[^\S\n]*(.*)$/i);
+    if(m && atual && !ehLogradouro(m[1],m[2])){ atual.resposta=(atual.resposta?atual.resposta+" ":"")+(m[2]||""); continue; }
     const caixaAlta=s.length>=4 && s.length<=60 && !/[a-zà-üç]/.test(s);
     if(caixaAlta){
       if(/QUESITOS?/i.test(s)){ grupo=""; atual=null; continue; }   // título de rol: zera o grupo
@@ -1268,13 +1498,14 @@ function segmentaQuesitos(parte, autoAnexo){
   if(!itens.length){ if(!autoAnexo) alert("Não encontrei perguntas numeradas na colagem — confira o texto."); return; }
   const base=lst.querySelectorAll(".row-dyn").length;
   itens.forEach((q,i)=>{
-    addRow("quesitos_"+parte, {numero:q.numero, grupo:q.grupo, pergunta:q.pergunta.split("\n").map(sq).join("\n"), resposta:q.resposta?sq(q.resposta):""});
+    addRow("quesitos_"+parte, {numero:q.numero, grupo:q.grupo,
+      pergunta:q.pergunta.split("\n").map(sq).join("\n"),
+      resposta:q.resposta?sq(q.resposta):"", __auto: autoAnexo?1:0});
     if(autoAnexo){
       AUTO.add(`quesitos_${parte}[${base+i+1}]_numero_autos`);
       AUTO.add(`quesitos_${parte}[${base+i+1}]_pergunta`);
     }
   });
-  if(autoAnexo) lst.querySelectorAll("input,textarea").forEach(x=>{ if(x.dataset.k!=="resposta"&&x.value) x.classList.add("autofill"); });
   salvar();
 }
 function removerAnexo(){
@@ -1283,8 +1514,33 @@ function removerAnexo(){
   setAnexoMsg(""); salvar();
 }
 
-/* ================================== CNJ ================================== */
+/* ============================ CNJ e CNPJ ================================= */
 function mod97(s){ let r=0; for(let i=0;i<s.length;i++){ r=(r*10+(s.charCodeAt(i)-48))%97; } return r; }
+/* CNPJ: os dois dígitos verificadores. Mesmo papel do mod-97 no CNJ — separar
+   número de ruído da camada de texto do PDF antes de gravar em campo de laudo. */
+function dvCNPJ(d){
+  if(!/^\d{14}$/.test(d) || /^(\d)\1{13}$/.test(d)) return false;
+  const calc=(base,pesos)=>{ let s=0;
+    for(let i=0;i<base.length;i++) s+=(+base[i])*pesos[i];
+    const r=s%11; return String(r<2?0:11-r); };
+  const p1=[5,4,3,2,9,8,7,6,5,4,3,2];
+  return d.slice(12)===calc(d.slice(0,12),p1)+calc(d.slice(0,13),[6].concat(p1));
+}
+/* Devolve os 14 dígitos válidos, ou null. Sobra de dígito é comum quando o número
+   emenda no texto seguinte ("73.160.269/0001-092" no caso Flash): tenta os 14 da
+   frente e os 14 de trás e só aceita se UM dos dois fechar — dois candidatos
+   válidos seriam adivinhação, e aqui não se adivinha. */
+function normalizaCNPJ(bruto){
+  const d=String(bruto||"").replace(/\D/g,"");
+  if(d.length===14) return dvCNPJ(d)?d:null;
+  if(d.length>14 && d.length<=17){
+    const a=d.slice(0,14), b=d.slice(-14), va=dvCNPJ(a), vb=dvCNPJ(b);
+    if(va&&!vb) return a;
+    if(vb&&!va) return b;
+  }
+  return null;
+}
+function formataCNPJ(d){ return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,"$1.$2.$3/$4-$5"); }
 function validaCNJ(){
   const el = document.getElementById("processo_numero_cnj");
   const fb = document.getElementById("v_cnj");
@@ -1345,15 +1601,41 @@ function coletar(){
     dados.listas[tipo]=[];
     document.querySelectorAll(`#lst_${tipo} .row-dyn`).forEach(r=>{
       const o={}; r.querySelectorAll("[data-k]").forEach(i=>o[i.dataset.k]=i.value);
+      if(r.dataset.auto==="1") o.__auto=1;    // origem da linha: viaja com o dado
       dados.listas[tipo].push(o);
     });
   }
   dados.anexo = ANEXO ? Object.assign({}, ANEXO, {auto:[...AUTO], auto_der:[...AUTO_DER]}) : null;
   dados.anexo_ref = ANEXO_REF ? Object.assign({}, ANEXO_REF) : null;
   dados.auto_orig = Object.keys(AUTO_ORIG).length ? Object.assign({}, AUTO_ORIG) : null;
+  dados.a_definir = ADEF.length ? JSON.parse(JSON.stringify(ADEF)) : null;
   return dados;
 }
+/* O Frio era o agente 8 de 11 e saiu da lista em 07/09/2026. Export anterior traz
+   nr15_8..11 com o significado velho; aplicado cru, a Umidade (9) cairia no campo do
+   Frio e os Agentes biológicos (11) não teriam onde cair — desalinhamento silencioso,
+   que é a família de defeito que este projeto mais paga caro. Detecta pelo id que não
+   existe mais, remapeia 9..11 -> 8..10 e AVISA: migração muda dado, e dado que muda
+   sem o perito saber é dado que ele não confere. */
+function migraNR15(dados){
+  const c = dados && dados.campos;
+  if(!c || (!("nr15_11_modo" in c) && !("nr15_11_texto" in c))) return dados;
+  const novo = Object.assign({}, c);
+  const frio = [c.nr15_8_modo, c.nr15_8_texto].filter(x => x && String(x).trim());
+  for(const suf of ["modo","texto"]){
+    for(let n=9;n<=11;n++) novo[`nr15_${n-1}_${suf}`] = c[`nr15_${n}_${suf}`] || "";
+    delete novo[`nr15_11_${suf}`];
+  }
+  setTimeout(()=>alert("Este arquivo é de antes de o agente Frio sair da lista da NR-15.\n\n"
+    + "Os agentes 9 a 11 (Umidade, Agentes químicos, Agentes biológicos) foram remapeados "
+    + "para 8 a 10. Confira a seção 10 antes de seguir."
+    + (frio.length ? "\n\nO que estava preenchido no Frio foi descartado — se fizer falta "
+                     + "neste caso, escreva no campo do agente a que ele pertence." : "")), 50);
+  return Object.assign({}, dados, {campos: novo});
+}
+
 function aplicar(dados){
+  dados = migraNR15(dados);
   for(const id in (dados.campos||{})){
     const el=document.getElementById(id); if(!el) continue;
     if(el.type==="checkbox") el.checked=!!dados.campos[id]; else el.value=dados.campos[id];
@@ -1372,6 +1654,8 @@ function aplicar(dados){
   if(dados.anexo_ref){ ANEXO_REF=Object.assign({},dados.anexo_ref); ANEXO_REF_FILE=null; }
   else { ANEXO_REF=null; ANEXO_REF_FILE=null; }
   AUTO_ORIG=Object.assign({}, dados.auto_orig||{});
+  ADEF = Array.isArray(dados.a_definir) ? dados.a_definir : [];   // pontos a definir do caso
+  adefBotao();
   document.querySelectorAll(".autofill").forEach(e=>e.classList.remove("autofill"));
   [...AUTO,...AUTO_DER,...Object.keys(AUTO_ORIG)].forEach(id=>{ const el=document.getElementById(id); if(el&&el.value) el.classList.add("autofill"); });
   if(ANEXO) setAnexoMsg(`anexo: ${ANEXO.nome}${ANEXO.paginas?` (${ANEXO.paginas} pág.)`:""}${ANEXO.texto?"":" — sem texto extraído"}`,"ok");
@@ -1458,7 +1742,7 @@ function listaPendencias(){
   });
   const cat=document.getElementById("meta_categoria").value;
   if(cat && cat!=="periculosidade")
-    for(let n=1;n<=11;n++){ const s=document.getElementById(`nr15_${n}_modo`); if(!s.value) add(`NR-15 agente ${n} sem resposta`, s); }
+    for(let n=1;n<=AGENTES_NR15.length;n++){ const s=document.getElementById(`nr15_${n}_modo`); if(!s.value) add(`NR-15 agente ${n} sem resposta`, s); }
   if(cat && cat!=="insalubridade")
     for(let n=1;n<=11;n++){ const s=document.getElementById(`nr16_${n}_modo`); if(!s.value) add(`NR-16 item ${n} sem resposta`, s); }
   return p;
@@ -1490,6 +1774,216 @@ function pendencias(){
     s.textContent = n ? `⚠ ${n}` : "";
   });
 }
+
+/* =============================== "A definir" ============================= */
+/* Os pontos que a montagem não pode resolver sozinha. Chegam no *_vistoria.json
+   (bloco `a_definir`, escrito pelo enriquecer_vistoria.py) e voltam pelo mesmo
+   bloco, com a resposta. Três situações, três abas:
+     confirmar — valor único, veio dos autos; falta o "confere?" do perito;
+     escolher  — duas peças dos autos discordam. A tela OFERECE as versões com a
+                 fonte de cada uma e nunca arbitra: quem decide é o perito;
+     decidir   — mérito e habitualidade. Sem valor sugerido, por princípio.
+   Resposta com `destino` também cai no campo do formulário; o aoEditar tira o
+   campo de AUTO_ORIG, e ele deixa de exportar como dado de autos aguardando
+   conferência para exportar como origem `formulario` — a mais forte do schema. */
+let ADEF = [];
+let ADEF_ABA = "confirmar";
+const ADEF_ABAS = [["confirmar","Confirmar"],["escolher","Divergência"],["decidir","Decidir"]];
+
+function adefFeito(q){
+  return !!q && q.resposta !== null && q.resposta !== undefined && String(q.resposta).trim() !== "";
+}
+function adefFalta(aba){ return ADEF.filter(q => (!aba || q.aba === aba) && !adefFeito(q)).length; }
+
+function adefBotao(){
+  const b = document.getElementById("btADefinir"); if(!b) return;
+  const n = adefFalta();
+  b.classList.toggle("oculto", !ADEF.length);
+  b.classList.toggle("tem", n > 0);
+  b.textContent = n ? "A definir " + n : "A definir ✓";
+}
+
+function abrirADefinir(){
+  if(!ADEF.length){
+    alert("Nenhum ponto a definir nesta vistoria.\n\nEles chegam junto com o arquivo que o escritório envia.");
+    return;
+  }
+  const p = ADEF.find(q => !adefFeito(q));
+  ADEF_ABA = p ? p.aba : ADEF_ABAS[0][0];
+  document.getElementById("menuSecoes").classList.add("oculto");
+  document.getElementById("telaRascunhos").classList.add("oculto");
+  document.getElementById("veu").classList.add("oculto");
+  document.getElementById("telaADefinir").classList.remove("oculto");
+  renderADefinir();
+}
+function adefAba(k){ ADEF_ABA = k; renderADefinir(); document.getElementById("telaADefinir").scrollTop = 0; }
+
+function renderADefinir(){
+  const abas = document.getElementById("adAbas"); abas.innerHTML = "";
+  ADEF_ABAS.forEach(([k, rot]) => {
+    const total = ADEF.filter(q => q.aba === k).length;
+    if(!total) return;                                  // aba sem ponto não aparece
+    const falta = adefFalta(k);
+    const b = document.createElement("button"); b.type = "button";
+    if(k === ADEF_ABA) b.className = "on";
+    b.innerHTML = esc(rot) + '<span class="n">' + (falta ? "⚠ " + falta : "✓") + "</span>";
+    b.onclick = () => adefAba(k);
+    abas.appendChild(b);
+  });
+  const t = adefFalta();
+  document.getElementById("adSub").textContent = t
+    ? t + (t === 1 ? " ponto ainda sem resposta" : " pontos ainda sem resposta") + " · de " + ADEF.length
+    : "os " + ADEF.length + " pontos estão respondidos";
+  const cx = document.getElementById("adCorpo"); cx.innerHTML = "";
+  const itens = ADEF.map((q, i) => [q, i]).filter(x => x[0].aba === ADEF_ABA);
+  if(!itens.length) cx.innerHTML = '<div class="ad-vazio">Nada nesta aba.</div>';
+  // aceitar em bloco só existe na aba do "confere?": divergência e mérito são um a um
+  if(ADEF_ABA === "confirmar" && adefFalta("confirmar") > 1){
+    const b = document.createElement("button"); b.className = "add"; b.type = "button";
+    b.style.marginBottom = ".3rem";
+    b.textContent = "Confere tudo o que falta (" + adefFalta("confirmar") + ")";
+    b.onclick = () => adefConfereTudo();
+    cx.appendChild(b);
+  }
+  itens.forEach(x => cx.appendChild(adefCard(x[0], x[1])));
+  const rod = document.createElement("div"); rod.className = "ad-rodape";
+  rod.innerHTML = '<button class="add" type="button" onclick="fechaMenus()">Voltar ao formulário</button>';
+  cx.appendChild(rod);
+  adefBotao();
+}
+
+function adefCard(q, i){
+  const d = document.createElement("div");
+  d.className = "ad-item" + (adefFeito(q) ? " feito" : "");
+  d.dataset.i = i;
+  const ops = Array.isArray(q.opcoes) ? q.opcoes : [];
+  d.innerHTML = "<h4>" + esc(q.titulo || q.id || "ponto") + (adefFeito(q) ? ' <span style="color:var(--ok)">✓</span>' : "") + "</h4>"
+    + (q.pergunta ? '<div class="perg">' + esc(q.pergunta) + "</div>" : "");
+  const nome = "adef_" + i;
+  const casada = ops.some(o => String(o.valor) === String(q.resposta));
+  if(q.aba === "confirmar" && ops.length === 1) return adefCardConfere(d, q, i, ops[0]);
+  const eOutro = adefFeito(q) && !casada;
+  const marcaveis = [];
+  ops.forEach(o => {
+    const lb = document.createElement("label"); lb.className = "ad-op";
+    const on = String(o.valor) === String(q.resposta);
+    if(on) lb.classList.add("marc");
+    lb.innerHTML = '<input type="radio" name="' + nome + '"' + (on ? " checked" : "") + ">"
+      + "<span><b>" + esc(o.valor) + "</b>"
+      + (o.fonte ? '<span class="fonte">' + esc(o.fonte) + "</span>" : "") + "</span>";
+    lb.querySelector("input").onchange = () => adefResponder(i, o.valor);
+    marcaveis.push(lb); d.appendChild(lb);
+  });
+  // "outra resposta" — sempre disponível, inclusive quando não há opção nenhuma (aba Decidir)
+  const lbo = document.createElement("label"); lbo.className = "ad-op";
+  const onO = eOutro || !ops.length;
+  if(onO && adefFeito(q)) lbo.classList.add("marc");
+  lbo.innerHTML = '<input type="radio" name="' + nome + '"' + (onO ? " checked" : "") + ">"
+    + "<span>" + (ops.length ? "Outra resposta:" : "Resposta:") + "</span>";
+  const inp = document.createElement(q.multilinha ? "textarea" : "input");
+  if(!q.multilinha) inp.type = "text";
+  inp.value = eOutro || !ops.length ? (q.resposta || "") : "";
+  if(q.exemplo) inp.placeholder = q.exemplo;
+  inp.style.marginTop = ".3rem";
+  inp.oninput = () => {
+    lbo.querySelector("input").checked = true;
+    marcaveis.forEach(l => l.classList.remove("marc"));
+    lbo.classList.toggle("marc", !!inp.value.trim());
+    adefResponder(i, inp.value, true);
+  };
+  lbo.querySelector("input").onchange = () => { adefResponder(i, inp.value, true); inp.focus(); };
+  d.appendChild(lbo); d.appendChild(inp);
+  const nt = document.createElement("textarea");
+  nt.placeholder = "Por quê? (opcional — segue junto com a resposta)";
+  nt.rows = 2;
+  nt.style.marginTop = ".5rem";
+  nt.value = q.nota || "";
+  nt.oninput = () => { q.nota = nt.value; salvar(); };
+  d.appendChild(nt);
+  adefDica(d, q);
+  return d;
+}
+
+function adefDica(d, q){
+  if(!q.destino) return;
+  const p = document.createElement("div"); p.className = "dica";
+  if(q.aplicado === false){
+    p.style.color = "var(--erro)";
+    p.textContent = "⚠ esta resposta não existe na lista do campo \"" + q.destino
+      + "\" — ela segue ao escritório, mas o campo do formulário fica por preencher.";
+  } else p.textContent = "A resposta entra no formulário, no campo correspondente.";
+  d.appendChild(p);
+}
+
+/* "Confirmar" é uma pergunta de sim/não: um valor único, vindo dos autos, à espera
+   do aval. Dois botões resolvem — e "Corrigir" abre o campo só de quem discordou. */
+function adefCardConfere(d, q, i, op){
+  const cx = document.createElement("div"); cx.className = "ad-op" + (adefFeito(q) ? " marc" : "");
+  cx.style.cursor = "default";
+  cx.innerHTML = "<span><b>" + esc(op.valor) + "</b>"
+    + (op.fonte ? '<span class="fonte">' + esc(op.fonte) + "</span>" : "") + "</span>";
+  d.appendChild(cx);
+  const corrigido = adefFeito(q) && String(q.resposta) !== String(op.valor);
+  const bts = document.createElement("div"); bts.className = "ad-rodape"; bts.style.margin = ".45rem 0 0";
+  const bOk = document.createElement("button"); bOk.className = "add"; bOk.type = "button";
+  bOk.textContent = String(q.resposta) === String(op.valor) ? "✓ Confere" : "Confere";
+  bOk.onclick = () => adefResponder(i, op.valor);
+  const bNao = document.createElement("button"); bNao.className = "add"; bNao.type = "button";
+  bNao.textContent = corrigido ? "Corrigido" : "Corrigir";
+  bts.appendChild(bOk); bts.appendChild(bNao);
+  d.appendChild(bts);
+  const inp = document.createElement("input"); inp.type = "text";
+  inp.style.marginTop = ".45rem";
+  inp.placeholder = "o valor correto";
+  inp.value = corrigido ? q.resposta : "";
+  if(!corrigido) inp.classList.add("oculto");
+  inp.oninput = () => adefResponder(i, inp.value, true);
+  bNao.onclick = () => { inp.classList.remove("oculto"); inp.focus(); };
+  d.appendChild(inp);
+  adefDica(d, q);
+  return d;
+}
+
+function adefConfereTudo(){
+  const alvos = ADEF.map((q, i) => [q, i])
+    .filter(x => x[0].aba === "confirmar" && !adefFeito(x[0])
+                 && Array.isArray(x[0].opcoes) && x[0].opcoes.length === 1);
+  if(!alvos.length) return;
+  if(!confirm("Dar por conferidos os " + alvos.length + " valores que faltam?\n\n"
+    + "São dados extraídos dos autos. Depois dá para corrigir um a um."))
+    return;
+  alvos.forEach(x => adefResponder(x[1], x[0].opcoes[0].valor, true));
+  renderADefinir();
+}
+
+function adefResponder(i, valor, digitando){
+  const q = ADEF[i]; if(!q) return;
+  q.resposta = (valor === null || valor === undefined) ? null : String(valor);
+  q.respondido_em = adefFeito(q) ? new Date().toISOString().slice(0, 10) : null;
+  if(q.destino && adefFeito(q)){
+    const el = document.getElementById(q.destino);
+    // select só recebe valor que exista na lista — senão a resposta some sem aviso
+    const cabe = el && (el.tagName !== "SELECT" || [].some.call(el.options, o => o.value === q.resposta));
+    if(cabe){
+      el.value = q.resposta;
+      el.dispatchEvent(new Event("input", {bubbles: true}));   // aoEditar tira o amarelo e o AUTO_ORIG
+      q.aplicado = true;
+    } else {
+      // resposta que não existe na lista do campo: fica registrada, mas não entra
+      // sozinha no formulário — silenciar aqui é como o "03 (três)" num select 1–4
+      q.aplicado = false;
+    }
+  }
+  salvar();
+  if(digitando){                                   // redesenhar aqui roubaria o foco de quem digita
+    const card = document.querySelector('.ad-item[data-i="' + i + '"]');
+    if(card) card.classList.toggle("feito", adefFeito(q));
+    adefBotao();
+    return;
+  }
+  renderADefinir();
+}
+
 
 /* ============================= pasta de destino ========================== */
 /* Escolhida uma vez, guardada no IndexedDB: daí em diante o Exportar grava    */
@@ -1656,7 +2150,7 @@ function campo(lista, caminho, valor, status){
 }
 async function exportar(nuvem){
   const pend = textosPendencias();
-  if(pend.length && !confirm(`Exportar mesmo com ${pend.length} pendência(s)?\n\n— `+pend.join("\n— "))) return;
+  if(pend.length && !MODO_QUESITOS && !confirm(`Exportar mesmo com ${pend.length} pendência(s)?\n\n— `+pend.join("\n— "))) return;
   const d = coletar(), c = [], hoje = new Date().toISOString().slice(0,10);
   const g = id => (d.campos[id]||"").toString().trim();
   const cat = g("meta_categoria")||"[não definida]";
@@ -1685,8 +2179,8 @@ async function exportar(nuvem){
   (d.listas.epcs||[]).forEach((r,i)=>campo(c,`protecao.epc[${i+1}]`,r.nome));
   campo(c,"protecao.uniforme",g("protecao_uniforme"));
   (d.listas.epis||[]).forEach((r,i)=>{
-    campo(c,`protecao.epi[${i+1}].nome`,r.nome);
-    campo(c,`protecao.epi[${i+1}].ca`,r.ca, r.ca?"confirmado":"lacuna");
+    campo(c,`protecao.epi[${i+1}].nome`,r.nome, r.__auto&&r.nome?"aguardando_perito":undefined);
+    campo(c,`protecao.epi[${i+1}].ca`,r.ca, r.ca?(r.__auto?"aguardando_perito":"confirmado"):"lacuna");
   });
   if(g("instrumento_tipo")){
     campo(c,"instrumento.tipo",g("instrumento_tipo"));
@@ -1703,7 +2197,7 @@ async function exportar(nuvem){
     });
   }
   // lacunas de NR só saem para a(s) categoria(s) da perícia; texto preenchido sai sempre
-  for(let n=1;n<=11;n++){
+  for(let n=1;n<=AGENTES_NR15.length;n++){
     const modo = g(`nr15_${n}_modo`) || (g(`nr15_${n}_texto`)?"proprio":"");
     if(cat==="periculosidade" && !modo) continue;
     campo(c,`avaliacoes.nr15[${n}].modo`, modo);
@@ -1738,9 +2232,13 @@ async function exportar(nuvem){
     const colado=g("quesitos_colados_"+parte);
     if(colado) c.push({campo:`quesitos.${parte}.texto_colado`,valor:colado,origem:"colagem",status:"confirmado"});
     (d.listas["quesitos_"+parte]||[]).forEach((r,i)=>{
-      campo(c,`quesitos.${parte}[${i+1}].numero_autos`,r.numero);
-      if((r.grupo||"").trim()) campo(c,`quesitos.${parte}[${i+1}].grupo`,r.grupo);
-      c.push({campo:`quesitos.${parte}[${i+1}].pergunta`,valor:r.pergunta||null,origem:`quesito#${r.numero||i+1}`,status:r.pergunta?"confirmado":"lacuna"});
+      // pergunta que o FORMULÁRIO transcreveu do anexo nunca sai `confirmado`: quem
+      // confirma é o perito. A marca vem da própria linha (`__auto`, ver addRow) —
+      // depender do conjunto AUTO fazia caixa de outro processo sair confirmada.
+      const stAuto = r.__auto ? "aguardando_perito" : "confirmado";
+      campo(c,`quesitos.${parte}[${i+1}].numero_autos`,r.numero, r.numero?stAuto:undefined);
+      if((r.grupo||"").trim()) campo(c,`quesitos.${parte}[${i+1}].grupo`,r.grupo, stAuto);
+      c.push({campo:`quesitos.${parte}[${i+1}].pergunta`,valor:r.pergunta||null,origem:`quesito#${r.numero||i+1}`,status:r.pergunta?stAuto:"lacuna"});
       c.push({campo:`quesitos.${parte}[${i+1}].resposta`,valor:r.resposta||null,origem:"formulario",status:r.resposta?"confirmado":"aguardando_perito"});
     });
   });
@@ -1769,7 +2267,8 @@ async function exportar(nuvem){
       metodologia:true,                     // decisão de 18/08: METODOLOGIA sempre entra (o campo saiu do formulário na v5.8)
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.2-2026-08-28"},
+      modo: MODO_QUESITOS ? "so_quesitos" : "completo",   // v6.8: so_quesitos = anexo_referencia é o laudo BASE
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.8-2026-09-15"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
@@ -1784,6 +2283,7 @@ async function exportar(nuvem){
     anexo_referencia: ANEXO_REF ? {nome:ANEXO_REF.nome, tamanho_bytes:ANEXO_REF.tamanho,
       tipo:ANEXO_REF.tipo, extraido_em:ANEXO_REF.extraido_em, truncado:ANEXO_REF.truncado,
       texto_extraido:ANEXO_REF.texto||null} : null,   // gabarito do escritório — só conferência na montagem
+    a_definir: ADEF.length ? ADEF : null,   // pontos a definir, com a resposta do perito
     backup_formulario:dBackup};
 
   // fotos da vistoria (v5.9) — embutidas em base64, mesma regra do arquivo único;
@@ -2091,6 +2591,7 @@ function aplicarImportado(j){
       else if(Array.isArray(j.campos)){ aplicar(registroParaBackup(j));
         alert("Registro antigo importado pelo mapa reverso — confira os campos antes de seguir."); }
       else alert("Formato não reconhecido. Importe um *_vistoria.json exportado por este formulário.");
+      if(Array.isArray(j.a_definir) && !ADEF.length){ ADEF=j.a_definir; adefBotao(); salvar(); }
       if(j.anexo_processo && ANEXO && !ANEXO.texto){
         const tx=j.anexo_processo.texto_extraido||"";
         ANEXO_TEXTO_FULL=tx||null;                 // inteiro em memória para reexportar
@@ -2140,6 +2641,7 @@ if(!document.querySelector("#lst_cicerones .row-dyn")) addRow("cicerones");
 if(!document.querySelector("#lst_epis .row-dyn")) addRow("epis");
 mudaReclamadas();
 pendencias();
+adefBotao();
 carregarPasta();
 </script>
 <script>
