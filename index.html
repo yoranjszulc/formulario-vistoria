@@ -115,7 +115,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v6.8 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v6.9 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" id="btADefinir" class="oculto" onclick="abrirADefinir()">A definir</button>
@@ -1337,6 +1337,23 @@ function extrairQuesitos(t, feitos, advs){
   const cnjs=[...t.matchAll(/\d{7}\s*-\s*\d{2}\s*\.\s*\d{4}\s*\.\s*\d\s*\.\s*\d{2}\s*\.\s*\d{4}/g)]
     .map(x=>({i:x.index, n:x[0].replace(/\s+/g,"")}));
   const cnjAntes=pos=>{ let u=null; for(const c of cnjs){ if(c.i>=pos) break; u=c; } return u; };
+  // v6.9: as travas de CNJ alheio têm falso positivo — petição DESTE processo gerada a
+  // partir de outro processo do mesmo advogado carrega o carimbo alheio no rodapé (caso
+  // 1000808-52: rodapé da pág. 404 com o CNJ da prova emprestada, e o rol de
+  // PERICULOSIDADE da pág. 405 era descartado). Petição própria = o "EXCELENTÍSSIMO" mais
+  // próximo antes do título tem como 1º CNJ o deste processo, e entre ele e o título não há
+  // título de LAUDO (laudo conexo embutido sem cabeçalho próprio). Decisão do Yoran,
+  // 15/09/2026: rol aceito assim entra, mas marcado para conferir a procedência.
+  const peticaoPropria=pos=>{
+    if(!cnjProc) return false;
+    const base=Math.max(0,pos-30000);
+    const hs=[...t.slice(base,pos).matchAll(/(?:^|\n)[^\S\n]*EXCELENT[ÍI]SS?[ÍI]MO/gi)];
+    if(!hs.length) return false;
+    const h=base+hs[hs.length-1].index;
+    const primeiro=cnjs.find(c=>c.i>=h && c.i<pos);
+    if(!primeiro || primeiro.n!==cnjProc) return false;
+    return !/\n[^\S\n]*LAUDO\s+(?:T[ÉE]CNICO|PERICIAL)/i.test(t.slice(h,pos));
+  };
   // item de rol: numerado (1. / 1) / 1 -) OU com marcador de lista (inclusive o bullet
   //  que o pdf.js devolve para Wingdings)
   // …ou com numeração ILEGÍVEL: fonte quebrada do PDF mapeia dígitos para glifos fora do
@@ -1375,7 +1392,11 @@ function extrairQuesitos(t, feitos, advs){
     // peça de processo conexo: CNJ divergente carimbado na VIZINHANÇA do rol (cabeçalho ou
     // margem da peça embutida) — citação distante em texto corrido não conta
     const ant=cnjAntes(li);
-    if(cnjProc && ant && ant.n!==cnjProc && li-ant.i<8000) continue;
+    let procedencia=null;                                    // CNJ alheio tolerado (v6.9)
+    if(cnjProc && ant && ant.n!==cnjProc && li-ant.i<8000){
+      if(!peticaoPropria(li)) continue;
+      procedencia=ant.n;
+    }
     const teto=ci+1<cand.length ? cand[ci+1].li : t.length;
     let ch=t.slice(lf, Math.min(lf+14000, teto));
     // rol de perícia MÉDICA com título neutro ("APRESENTAÇÃO DE QUESITOS"): o aviso está
@@ -1402,7 +1423,13 @@ function extrairQuesitos(t, feitos, advs){
     const fe=ch.search(/\n[^\S\n]*(?:Termos em que|Nestes termos|Pede[\s\-]*deferimento|P\.\s*deferimento)/i);
     if(fe>0) ch=ch.slice(0,fe);
     const cnjsBloco=ch.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g)||[];
-    if(cnjProc && cnjsBloco.some(n=>n!==cnjProc)) continue;  // margem de outro processo no meio
+    const alheiosBloco=cnjProc ? cnjsBloco.filter(n=>n!==cnjProc) : [];
+    if(alheiosBloco.length){                                 // margem de outro processo no meio
+      if(!peticaoPropria(li)) continue;
+      // aceito por ser petição própria: o bloco não atravessa para o documento seguinte
+      const nd=ch.search(/\n[^\S\n]*EXCELENT[ÍI]SS?[ÍI]MO/i); if(nd>0) ch=ch.slice(0,nd);
+      procedencia=procedencia||alheiosBloco[0];
+    }
     let parte=null;
     // 1º critério: advogado que assinou o documento (mapa da capa do PJe, por parte)
     // só a 1ª assinatura conta: é o rodapé das páginas do PRÓPRIO rol — a janela larga
@@ -1424,7 +1451,7 @@ function extrairQuesitos(t, feitos, advs){
       else if(/RECLAMANTE|AUTOR/i.test(linha)) parte="reclamante";
       else if(/RECLAMADA|R[ÉE]U|CONTESTA/i.test(linha)) parte="reclamada";
     }
-    blocos.push({parte, texto:limparPJe(linha+"\n"+ch.trim())});
+    blocos.push({parte, texto:limparPJe(linha+"\n"+ch.trim()), procedencia});
   }
   // mesmo rol protocolado 2× (uma cópia por contestação de cada reclamada): fica um só
   const vB=new Set();
@@ -1445,7 +1472,11 @@ function extrairQuesitos(t, feitos, advs){
     if(!el||el.value||!meus.length) continue;
     el.value=meus.map(b=>b.texto).join("\n\n----------\n\n");
     AUTO.add("quesitos_colados_"+parte); el.classList.add("autofill");
-    feitos.push(`quesitos (${rotulo[parte]}, ${meus.length} bloco${meus.length>1?"s":""} — conferir autoria)`);
+    const alheios=[...new Set(meus.map(b=>b.procedencia).filter(Boolean))];
+    feitos.push(`quesitos (${rotulo[parte]}, ${meus.length} bloco${meus.length>1?"s":""} — conferir autoria)`
+      + (alheios.length ? ` ⚠ rol com carimbo de OUTRO processo (${alheios.join(", ")}) na petição — conferir a procedência` : ""));
+    if(alheios.length && ANEXO){ ANEXO.divergencias=ANEXO.divergencias||[];
+      ANEXO.divergencias.push({campo:"quesitos."+parte, tipo:"procedencia", valores:[cnjProc, ...alheios]}); }
     segmentaQuesitos(parte, true);      // uma box por pergunta, para o perito visualizar
   }
 }
@@ -2268,7 +2299,7 @@ async function exportar(nuvem){
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
       modo: MODO_QUESITOS ? "so_quesitos" : "completo",   // v6.8: so_quesitos = anexo_referencia é o laudo BASE
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.8-2026-09-15"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.9-2026-09-15"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
