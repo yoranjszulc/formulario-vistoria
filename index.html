@@ -115,7 +115,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v6.9 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v6.10 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" id="btADefinir" class="oculto" onclick="abrirADefinir()">A definir</button>
@@ -1064,7 +1064,13 @@ function autoPreencher(t){
       // "RECLAMANTE: NOME" de cabeçalho de certidão/mandado abre zona que emenda no corpo
       // do documento (CPF do gerente predial veio daí) — cabeçalho não é qualificação
       if(/(?:RECLAMANTES?|DESTINAT[ÁA]RIOS?|RECLAMAD[OA]S?|R[ÉE]U)\s*[:\-]\s*$/i.test(tN.slice(Math.max(0,x.index-30), x.index))) continue;
-      zonas.push(juntaLin(t.slice(x.index, x.index+900))); if(zonas.length>=40) break;
+      // a zona termina onde começa a qualificação de OUTRA pessoa: na procuração do caso
+      // 1000875 os 900 chars saíam do reclamante e entravam no advogado contratado, cujo
+      // CPF foi gravado como o do reclamante (v6.10)
+      let z=juntaLin(t.slice(x.index, x.index+900));
+      const outra=z.slice(20).search(/\b(?:procurador(?:es|as?)?|outorgad[oa]s?|contratad[oa]s?|advogad[oa]s?)\b|\bOAB\b/i);
+      if(outra>=0) z=z.slice(0, 20+outra);
+      zonas.push(z); if(zonas.length>=40) break;
     }};
   // âncora = 2 primeiros nomes (1º nome sozinho abre zona de homônimo — 4 "Guilhermes"
   // diferentes num só processo); só cai para o 1º nome se os dois juntos não aparecerem
@@ -1075,16 +1081,22 @@ function autoPreencher(t){
   const acha=re=>{ for(const z of zonas){ const r=z.match(re); if(r) return r; } return null; };
   // divergência entre peças: coleta TODOS os valores distintos; o campo recebe o 1º na
   // ordem dos autos e a divergência se REGISTRA, não se arbitra (regra do projeto)
-  const achaTodos=(res,norm)=>{ const s=new Map();
+  // `valido` filtra ANTES da regra do prefixo: sem isso um lixo mais longo
+  // ("369.956.438-0119") derrubava o CPF certo como "truncado" e depois caía ele mesmo (v6.10)
+  const achaTodos=(res,norm,valido=()=>true)=>{ const s=new Map();
     for(const z of zonas) for(const re of res){ const r=z.match(re);
-      if(r&&r[1]){ const k=norm(r[1]); if(k&&!s.has(k)) s.set(k,r[1]); } }
+      if(r&&r[1]){ const k=norm(r[1]); if(k&&valido(k)&&!s.has(k)) s.set(k,r[1]); } }
     // valor truncado que é prefixo de um completo é o MESMO dado, não divergência
     return [...s.entries()].filter(([k])=>![...s.keys()].some(o=>o!==k&&o.startsWith(k))).map(([,v])=>v); };
   const marcaDiv=(campo,rotulo,vals)=>{ if(vals.length>1){
       if(ANEXO){ ANEXO.divergencias=ANEXO.divergencias||[]; ANEXO.divergencias.push({campo, valores:vals}); }
       return `${rotulo} (⚠ DIVERGE entre peças: ${vals.join(" ≠ ")} — conferir)`; }
     return rotulo; };
-  let vs=achaTodos([/C\.?\s?P\.?\s?F\.?[^\n\d]{0,25}(\d[\d. \-]{9,16}\d)/i], v=>v.replace(/\D/g,"")).map(v=>v.replace(/\s+/g,""));
+  // CPF só entra com 11 dígitos e DV fechando (v6.10): o OCR trocou o hífen por apóstrofo
+  // ("124.202.278'32") e o campo gravou 9 dígitos. O rótulo pode quebrar linha antes do
+  // número ("CPF/MF sob o nº ¶768.703.168 - 72" — a inicial do 1000875 escapava por isso)
+  let vs=achaTodos([/C\.?\s?P\.?\s?F\.?[^\d]{0,25}?(\d{3}\.?\s?\d{3}\.?\s?\d{3}\s*[-–]?\s*\d{2})(?!\d)/i],
+    v=>v.replace(/\D/g,""), dvCPF).map(v=>v.replace(/\s+/g,""));
   if(vs.length) poe("reclamante_cpf", vs[0], marcaDiv("reclamante.cpf","CPF",vs), feitos);
   vs=achaTodos([/\bR\.?\s?G\.?[^\n\d]{0,25}(\d[\d. \-xX]{4,13}[\dxX])/i], v=>v.replace(/[^0-9xX]/g,"").toUpperCase()).map(v=>v.replace(/\s+/g,""));
   if(vs.length) poe("reclamante_rg", vs[0], marcaDiv("reclamante.rg","RG",vs), feitos);
@@ -1556,6 +1568,12 @@ function dvCNPJ(d){
     const r=s%11; return String(r<2?0:11-r); };
   const p1=[5,4,3,2,9,8,7,6,5,4,3,2];
   return d.slice(12)===calc(d.slice(0,12),p1)+calc(d.slice(0,13),[6].concat(p1));
+}
+/* CPF: 11 dígitos e os dois DV fechando; número de um dígito só repetido não vale. */
+function dvCPF(d){
+  if(!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false;
+  const calc=n=>{ let s=0; for(let i=0;i<n;i++) s+=(+d[i])*(n+1-i); return String((s*10)%11%10); };
+  return d[9]===calc(9) && d[10]===calc(10);
 }
 /* Devolve os 14 dígitos válidos, ou null. Sobra de dígito é comum quando o número
    emenda no texto seguinte ("73.160.269/0001-092" no caso Flash): tenta os 14 da
@@ -2299,7 +2317,7 @@ async function exportar(nuvem){
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
       modo: MODO_QUESITOS ? "so_quesitos" : "completo",   // v6.8: so_quesitos = anexo_referencia é o laudo BASE
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.9-2026-09-15"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.10-2026-09-16"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
