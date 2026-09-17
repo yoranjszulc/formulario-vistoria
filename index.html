@@ -115,7 +115,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v6.10 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v6.11 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" id="btADefinir" class="oculto" onclick="abrirADefinir()">A definir</button>
@@ -748,7 +748,10 @@ async function anexarProcesso(ev){
   ANEXO={nome:f.name,tamanho:f.size,tipo:ext,paginas:null,
     extraido_em:new Date().toISOString().slice(0,10),truncado:false,texto:"",ocr_paginas:0};
   if(ext==="doc"){
-    setAnexoMsg(`⚠ ${f.name}: .doc antigo — não leio aqui. Anexo registrado; mande o arquivo junto com o JSON que a extração é feita na montagem do laudo.`,"aviso");
+    // amarelo AQUI é justo: sem leitura não roda o autoPreencher, e o perito vai
+    // preencher à mão o que o anexo daria. Mas o texto diz o que fazer, não "erro" —
+    // ver o verde do anexarReferencia e a nota de 17/09/2026 no pendencias.md.
+    setAnexoMsg(`⚠ ${f.name} anexado, mas é .doc antigo (Word 97-2003): este formulário não abre esse formato, então não preenchi nenhum campo automaticamente — você preenche à mão. O arquivo NÃO está corrompido e nada se perde: exporte normalmente e mande o .doc junto com o JSON, que o escritório extrai na montagem. Prefere que eu preencha? salve o processo como .pdf ou .docx e anexe de novo.`,"aviso");
     salvar(); return;
   }
   try{
@@ -785,7 +788,12 @@ async function anexarReferencia(ev){
   ANEXO_REF={nome:f.name,tamanho:f.size,tipo:ext,
     extraido_em:new Date().toISOString().slice(0,10),truncado:false,texto:""};
   if(ext==="doc"){
-    setRefMsg(`⚠ ${f.name}: .doc antigo — não leio aqui. Registrado; mande o arquivo junto com o JSON.`,"aviso");
+    // VERDE de propósito (17/09/2026): o documento de apoio não preenche campo nenhum
+    // em caso nenhum — só vai ao registro para a montagem conferir. Então com .doc
+    // antigo nada deixa de acontecer, e o amarelo daqui foi lido pelo perito como
+    // arquivo corrompido (caso 1001012-26, gabarito Polistamp): ele avisou que "subiu
+    // arquivo corrompido" quando o .doc estava íntegro e o fluxo, correto.
+    setRefMsg(`✓ ${f.name} anexado — .doc antigo (Word 97-2003), que este formulário não abre. Está tudo certo: o documento de apoio não preenche campos, só vai junto no Exportar para a montagem conferir. Mande o .doc junto com o JSON que o escritório lê lá.`,"ok");
     salvar(); return;
   }
   try{
@@ -1512,6 +1520,13 @@ function segmentaQuesitos(parte, autoAnexo){
   // Latin + "."), que vira box com nº vazio; nunca se inventa o número
   const reIni=/^(?:(\d{1,3})[^\S\n]{0,2}[).:\-–]|[•▪◦‣●]|[^\x00-\x7F\sÀ-ɏ]{1,2}[^\S\n]{0,2}\.(?=[^\S\n]))[^\S\n]*(\S.*)$/;
   const reSub=/^([a-z])[^\S\n]?\)[^\S\n]*(\S.*)$/;
+  // nº com os dígitos PARTIDOS pelo pdf.js ("1 1 ) Os mesmos elidem…"): o reItem do
+  // extrairQuesitos já aceita, o reIni daqui não aceitava, e o item era colado no fim do
+  // anterior — caso Polistamp 1001012-26 (17/09/2026): os quesitos 10 e 11 do reclamante
+  // saíram fundidos numa box só, 17 no lugar de 18, e o 11 era justamente "os EPI elidem
+  // a insalubridade?". Mesma trava do NUM_PARTIDO_RE do segmentador_quesitos.py: só vale
+  // quando CONTINUA a sequência, senão "3 4." de texto corrido viraria quesito.
+  const rePartido=/^(\d)[^\S\n](\d)[^\S\n]{0,2}[).:\-–][^\S\n]*(\S.*)$/;
   for(const lnRaw of txt.split("\n")){
     const s=lnRaw.trim();
     if(!s || /^-{4,}$/.test(s)) continue;                        // vazio / separador de blocos
@@ -1525,6 +1540,11 @@ function segmentaQuesitos(parte, autoAnexo){
     if(mDec && atual && atual.resposta===undefined && mDec[1]===atual.numero){
       atual.pergunta+="\n"+s; continue; }
     let m=s.match(reIni);
+    if(!m && atual){                                   // nº partido: só se continuar a sequência
+      const mp=s.match(rePartido);
+      if(mp && parseInt(mp[1]+mp[2],10)===parseInt(atual.numero,10)+1)
+        m=[s, mp[1]+mp[2], mp[3]];
+    }
     if(m){ atual={numero:m[1]||"", grupo, pergunta:m[2]}; itens.push(atual); continue; }
     m=s.match(reSub);
     if(m && atual && atual.resposta===undefined){ atual.pergunta+="\n"+s; continue; }  // subitem: mesma box
@@ -2317,7 +2337,7 @@ async function exportar(nuvem){
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
       modo: MODO_QUESITOS ? "so_quesitos" : "completo",   // v6.8: so_quesitos = anexo_referencia é o laudo BASE
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.10-2026-09-16"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.11-2026-09-17"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
