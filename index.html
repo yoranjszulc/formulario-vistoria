@@ -115,7 +115,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <div style="min-width:0">
       <h1>Vistoria — Laudo Técnico Pericial</h1>
-      <div class="sub">Perito Algério Szulc · v6.11 · preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
+      <div class="sub">Perito Algério Szulc · v6.12 ·preenche offline · salva sozinho neste aparelho · <span id="statusSalvo"></span></div>
     </div>
     <div class="hbts">
       <button type="button" id="btADefinir" class="oculto" onclick="abrirADefinir()">A definir</button>
@@ -386,6 +386,7 @@
   </div>
   <div id="maisAcoes" class="oculto" onclick="fecharMais()">
     <button class="sec" type="button" onclick="laudosProntos()" title="Laudos prontos para baixar">Laudos</button>
+    <button class="sec" type="button" onclick="perguntasEscritorio()" title="Perguntas do escritório sobre um laudo">Perguntas</button>
     <button class="sec" type="button" onclick="exportar()" title="Exportar esta vistoria para um arquivo">Exportar</button>
     <button id="btPasta" class="sec oculto" type="button" onclick="escolherPasta()">Pasta</button>
     <button class="sec" type="button" onclick="document.getElementById('importFile').click()" title="Importar uma vistoria de um arquivo">Importar</button>
@@ -2337,7 +2338,7 @@ async function exportar(nuvem){
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
       modo: MODO_QUESITOS ? "so_quesitos" : "completo",   // v6.8: so_quesitos = anexo_referencia é o laudo BASE
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.11-2026-09-17"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.12-2026-09-18"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       // no registro vai o texto INTEIRO quando ainda está em memória (o cap de 600k é só
@@ -2545,7 +2546,7 @@ async function enviarNuvem(nome, conteudo){
   }
 }
 function brDataNome(nome){
-  const m=nome.match(/_(\d{4})-(\d{2})-(\d{2})_vistoria\.json$/);
+  const m=nome.match(/_(\d{4})-(\d{2})-(\d{2})_(vistoria|perguntas|respostas)\.json$/);
   return m?`${m[3]}/${m[2]}/${m[1]}`:"";
 }
 function cnjDoNome(nome){
@@ -2591,6 +2592,26 @@ const TELAS_NUVEM = {
       // entregue: sai da lista principal. O corpo "" é só para virar POST.
       if(!hist) await nuvem("arquivar",{nome:a.nome},"");
       return {feito:"Baixado ✓"};
+    }
+  },
+  // v6.12: perguntas do escritório (perguntas_perito.py) — quesito que o laudo não
+  // resolve, aviso sobre o laudo, pergunta solta. A resposta volta como
+  // <cnj>_<data>_respostas.json e entra no registro do caso com origem perito.
+  perguntas:{
+    titulo:"Perguntas do escritório",
+    dica:"Toque em Responder. O que ficar em branco segue pendente — pode responder em mais de uma vez.",
+    vazio:"Nenhuma pergunta do escritório esperando resposta.",
+    filtro:a=>/_perguntas[.]json$/i.test(a.nome),
+    linha:a=>`<b>${esc(cnjDoNome(a.nome))}</b><div class="dica">perguntas de ${esc(brDataNome(a.nome))}</div>`,
+    rotulo:"Responder", fazendo:"Abrindo…",
+    async executa(a, hist){
+      const rr=await nuvem("buscar", hist?{nome:a.nome,pasta:"historico"}:{nome:a.nome});
+      if(!rr || !rr.ok) throw new Error("não consegui baixar "+a.nome);
+      const doc=await rr.json();
+      if(doc.tipo!=="perguntas_perito" || !Array.isArray(doc.itens))
+        throw new Error("o arquivo não é de perguntas do escritório");
+      abrirPerguntas(doc, a.nome);
+      return {fecha:true};
     }
   }
 };
@@ -2653,6 +2674,121 @@ async function telaNuvem(tipo, hist){
 
 function buscarNuvem(){ return telaNuvem("vistorias", false); }
 function laudosProntos(){ return telaNuvem("laudos", false); }
+function perguntasEscritorio(){ return telaNuvem("perguntas", false); }
+
+/* ===================== Perguntas do escritório (v6.12) ======================
+   Independe da vistoria aberta: não lê nem mexe em campo nenhum do formulário.
+   O rascunho das respostas fica neste aparelho (chave pelo nome do arquivo) —
+   fechar a tela não perde o que foi escrito. Resposta vazia = "pendente": sobe
+   assim, e as perguntas continuam na lista até tudo estar respondido.        */
+function pergChave(nome){ return "vistoria_perguntas_"+nome; }
+function pergRascunho(nome){
+  try{ return JSON.parse(localStorage.getItem(pergChave(nome))||"{}")||{}; }catch(e){ return {}; }
+}
+function pergGuarda(nome, r){ try{ localStorage.setItem(pergChave(nome), JSON.stringify(r)); }catch(e){} }
+function pergDecisao(it, r){
+  const x=r[it.id]||{}, t=(x.texto||"").trim();
+  if(it.modo==="confere"){
+    if(x.escolha==="confirmo") return {decisao:"confirmo", resposta:null};
+    if(x.escolha==="corrijo" && t) return {decisao:"corrijo", resposta:t};
+    return {decisao:"pendente", resposta:null};
+  }
+  return t ? {decisao:"resposta", resposta:t} : {decisao:"pendente", resposta:null};
+}
+
+function abrirPerguntas(doc, nome){
+  const r=pergRascunho(nome);
+  let m=document.getElementById("modalNuvem"); if(m) m.remove();
+  m=document.createElement("div"); m.id="modalNuvem";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99;display:flex;align-items:center;justify-content:center;padding:.6rem";
+  const cx=document.createElement("div");
+  cx.style.cssText="background:var(--cinza);border-radius:10px;max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:.9rem";
+  cx.innerHTML=`<b>Perguntas do escritório — ${esc(doc.cnj||cnjDoNome(nome))}</b>`
+    +`<div class="dica">${esc(doc.caso||"")}${doc.laudo?" · laudo: "+esc(doc.laudo):""}</div>`
+    +`<div class="dica" id="pergConta"></div>`;
+  const conta=()=>{
+    const f=doc.itens.filter(it=>pergDecisao(it,r).decisao!=="pendente").length;
+    cx.querySelector("#pergConta").textContent=f+" de "+doc.itens.length+" respondidas";
+  };
+  doc.itens.forEach(it=>{
+    const d=document.createElement("div"); d.className="ad-item";
+    const marca=()=>d.classList.toggle("feito", pergDecisao(it,r).decisao!=="pendente");
+    const subs=(it.subitens||[]).map(s=>"<li>"+esc(typeof s==="string"?s:(s.texto||JSON.stringify(s)))+"</li>").join("");
+    d.innerHTML="<h4>"+esc(it.titulo||it.id)+"</h4>"
+      +(it.secao?'<div class="dica">'+esc(it.secao)+"</div>":"")
+      +'<div class="perg">'+esc(it.pergunta||"")+"</div>"
+      +(subs?'<ul class="perg">'+subs+"</ul>":"")
+      +(it.contexto?'<div class="dica">O que o escritório achou: '+esc(it.contexto)+"</div>":"");
+    const x=r[it.id]||(r[it.id]={});
+    const ta=document.createElement("textarea"); ta.rows=3; ta.style.marginTop=".4rem";
+    ta.value=x.texto||"";
+    ta.oninput=()=>{ x.texto=ta.value; pergGuarda(nome,r); marca(); conta(); };
+    if(it.modo==="confere"){
+      ta.placeholder="O que está errado e qual é o certo";
+      const bts=document.createElement("div"); bts.className="ad-rodape"; bts.style.margin=".45rem 0 0";
+      const bOk=document.createElement("button"), bCo=document.createElement("button");
+      [bOk,bCo].forEach(b=>{ b.className="add"; b.type="button"; bts.appendChild(b); });
+      bOk.textContent="Confirmo"; bCo.textContent="Corrijo";
+      const pinta=()=>{
+        bOk.style.background=x.escolha==="confirmo"?"#eef3f8":"#fff";
+        bCo.style.background=x.escolha==="corrijo"?"#eef3f8":"#fff";
+        bOk.style.fontWeight=x.escolha==="confirmo"?"bold":"normal";
+        bCo.style.fontWeight=x.escolha==="corrijo"?"bold":"normal";
+        ta.classList.toggle("oculto", x.escolha!=="corrijo");
+      };
+      bOk.onclick=()=>{ x.escolha=x.escolha==="confirmo"?null:"confirmo"; pergGuarda(nome,r); pinta(); marca(); conta(); };
+      bCo.onclick=()=>{ x.escolha=x.escolha==="corrijo"?null:"corrijo"; pergGuarda(nome,r); pinta(); marca(); conta();
+        if(x.escolha==="corrijo") ta.focus(); };
+      d.appendChild(bts); d.appendChild(ta); pinta();
+    } else {
+      ta.placeholder="Sua resposta — em branco, segue pendente";
+      d.appendChild(ta);
+    }
+    marca(); cx.appendChild(d);
+  });
+  const rod=document.createElement("div"); rod.className="ad-rodape";
+  const bE=document.createElement("button"); bE.className="add"; bE.type="button"; bE.textContent="Enviar respostas";
+  bE.style.cssText="background:var(--azul);color:#fff;font-weight:bold";
+  const bF=document.createElement("button"); bF.className="add"; bF.type="button"; bF.textContent="Fechar (fica guardado)";
+  bF.onclick=()=>m.remove();
+  bE.onclick=async()=>{
+    bE.disabled=true; bE.textContent="Enviando…";
+    try{ if(await enviarRespostas(doc, nome, r)) m.remove(); }
+    finally{ bE.disabled=false; bE.textContent="Enviar respostas"; }
+  };
+  rod.appendChild(bE); rod.appendChild(bF); cx.appendChild(rod);
+  m.appendChild(cx); document.body.appendChild(m); conta();
+}
+
+async function enviarRespostas(doc, nome, r){
+  const itens=doc.itens.map(it=>Object.assign(
+    {id:it.id, tipo:it.tipo, titulo:it.titulo||null, pergunta:it.pergunta||null}, pergDecisao(it,r)));
+  const falta=itens.filter(x=>x.decisao==="pendente").length;
+  if(falta===itens.length){ alert("Nenhuma resposta ainda — nada a enviar."); return false; }
+  if(falta && !confirm(falta+(falta===1?" pergunta ficou":" perguntas ficaram")+" sem resposta.\n\n"
+      +"Enviar assim mesmo? O que foi respondido vai agora, e as perguntas continuam na sua lista.")) return false;
+  const agora=new Date(), p2=n=>String(n).padStart(2,"0");
+  const sub=(document.querySelector("header .sub")||{}).textContent||"";
+  const vm=sub.match(/v\d+\.\d+(\.\d+)?/);
+  const resp={tipo:"respostas_perito", versao:1, cnj:doc.cnj, perguntas:nome, laudo:doc.laudo||null,
+    respondido_em:`${agora.getFullYear()}-${p2(agora.getMonth()+1)}-${p2(agora.getDate())}T${p2(agora.getHours())}:${p2(agora.getMinutes())}`,
+    fonte:"Formulario_Vistoria.html", versao_formulario:vm?vm[0]:null, itens};
+  const alvo=nome.replace(/_perguntas[.]json$/i,"_respostas.json");
+  try{
+    const rr=await nuvem("enviar",{nome:alvo},JSON.stringify(resp,null,1));
+    if(!rr) return false;
+    const j=await rr.json().catch(()=>({}));
+    if(!rr.ok || !j.ok){ alert("O envio não foi aceito: "+(j.erro||("erro "+rr.status))); return false; }
+    // tudo respondido: as perguntas cumpriram a função e saem da lista
+    if(!falta) await nuvem("arquivar",{nome},"");
+    alert("Respostas enviadas ao escritório ✓\n"+(itens.length-falta)+" de "+itens.length+" respondidas"
+      +(falta?"\nAs pendentes continuam em Perguntas.":""));
+    return true;
+  }catch(e){
+    alert("Sem conexão com o escritório ("+e.message+").\n\nAs respostas ficam guardadas neste aparelho — tente de novo com internet.");
+    return false;
+  }
+}
 
 function aplicarImportado(j){
       if(j.backup_formulario && j.backup_formulario.campos){ aplicar(j.backup_formulario); }   // registro v3+: backup embutido
