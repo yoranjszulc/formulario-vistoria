@@ -180,6 +180,9 @@
   .dlg-caixa{background:var(--papel);border:3px solid var(--acao);border-radius:12px;padding:1.3rem 1.4rem;max-width:34rem;width:100%}
   .dlg-caixa h2{font-size:1.3rem;margin:0 0 .5rem}
   .dlg-caixa p{margin:0 0 1rem;color:var(--apoio);white-space:pre-line}
+  .dlg-campo{display:block;width:100%;font:inherit;font-size:1rem;padding:.6rem .7rem;margin:0 0 1rem;
+    border:2px solid var(--borda);border-radius:8px}
+  .dlg-campo.oculto{display:none}
   .dlg-botoes{display:flex;gap:.8rem;justify-content:flex-end;flex-wrap:wrap}
   .bt1.perigo{background:var(--falta);border-color:var(--falta)}
   .row-dyn{padding:.6rem}
@@ -212,6 +215,9 @@
   .selo-grande p{margin:.2rem 0 0}
   .enviado-faltas{color:var(--falta);font-weight:bold}
   .enviado-faltas:empty{display:none}
+  .estado-pedido{border-color:var(--acao)}
+  .selo-auto{display:inline-block;margin-top:.35rem;padding:.2rem .7rem;border-radius:999px;
+    background:var(--anexo);border:2px solid var(--anexo-borda);color:var(--tinta);font-size:.9rem;font-weight:bold}
   .tour{position:fixed;inset:0;z-index:70}
   .tour.oculto{display:none}
   .tour.sem-foco{background:rgba(20,28,38,.62)}
@@ -265,7 +271,7 @@
   <div class="topo">
     <div class="caso">
       <h1 id="tituloCaso">Vistoria</h1>
-      <div class="sub">Perito Algério Szulc · v6.20</div>
+      <div class="sub">Perito Algério Szulc · v6.21</div>
       <div id="selo" class="selo vazio" role="status" aria-live="polite">Nada preenchido ainda</div>
     </div>
     <span id="statusSalvo" hidden></span>
@@ -582,6 +588,7 @@
       <button type="button" class="link" onclick="fecharEntrada();abrirRascunhos()">Outras vistorias guardadas neste aparelho</button>
       <button type="button" class="link" onclick="document.getElementById('importFile').click()">Abrir um arquivo guardado</button>
       <input type="file" id="importFile" class="oculto" accept=".json" onchange="fecharEntrada();importar(event)">
+      <button type="button" id="btModoEscritorio" class="link oculto" onclick="fecharEntrada();abrirEscritorio()">Modo escritório</button>
     </p>
   </div>
 </div>
@@ -604,6 +611,7 @@
   <div class="tela-corpo">
     <div class="selo-grande"><span aria-hidden="true">✓</span><div><h2 id="enviadoTitulo"></h2><p id="enviadoSub"></p></div></div>
     <p id="enviadoFaltas" class="enviado-faltas"></p>
+    <div id="enviadoEstado" class="cartao estado-pedido oculto" role="status" aria-live="polite"></div>
     <p>A vistoria continua guardada neste aparelho. O que o senhor quer fazer agora?</p>
     <button type="button" class="bt1 largo" onclick="fecharTela('telaEnviado');abrirEntrada()">Começar outra vistoria</button>
     <button type="button" class="bt2 largo" onclick="fecharTela('telaEnviado')">Voltar a esta vistoria</button>
@@ -614,6 +622,7 @@
   <div class="dlg-caixa">
     <h2 id="dlgTitulo"></h2>
     <p id="dlgTexto"></p>
+    <input id="dlgCampo" class="dlg-campo oculto" type="password" autocomplete="off" aria-labelledby="dlgTitulo">
     <div class="dlg-botoes"><button type="button" id="dlgNao" class="bt2"></button><button type="button" id="dlgSim" class="bt1"></button></div>
   </div>
 </div>
@@ -941,6 +950,10 @@ async function anexarReferencia(ev){
   ANEXO_REF={nome:f.name,tamanho:f.size,tipo:ext,
     extraido_em:new Date().toISOString().slice(0,10),truncado:false,texto:""};
   if(ext==="doc"){
+    if(typeof modoPedido==="function" && modoPedido()==="quesitos"){
+      setRefMsg(`⚠ ${f.name} é um arquivo .doc antigo (Word 97-2003). O laudo precisa estar em .docx. Abra o laudo no Word, use Salvar como → Documento do Word (.docx) e anexe de novo.`,"aviso");
+      salvar(); return;
+    }
     setRefMsg(`✓ ${f.name} anexado — é um arquivo .doc antigo (Word 97-2003), que este formulário não abre. Está tudo certo: ele vai junto quando o senhor enviar, e o escritório lê lá.`,"ok");
     salvar(); return;
   }
@@ -960,6 +973,8 @@ function removerReferencia(){ ANEXO_REF=null; ANEXO_REF_FILE=null; setRefMsg("")
 async function soQuesitos(){
   if(!ANEXO_REF){ await avisar("Falta anexar o seu laudo", "Anexe o laudo já formatado na seção 2 e clique de novo."); return; }
   if(!ANEXO_REF_FILE){ await avisar("O arquivo do laudo não está mais aqui", "Anexe o laudo de novo na seção 2 e clique de novo."); return; }
+  if(String(ANEXO_REF.tipo||"").toLowerCase()!=="docx"){
+    await avisar("O laudo precisa estar em .docx", "Abra o laudo no Word, use Salvar como → Documento do Word (.docx) e anexe de novo."); return; }
   if(!(document.getElementById("processo_numero_cnj").value||"").trim()){
     await avisar("Falta o número do processo", "Preencha o número do processo (CNJ) na seção 2. É por ele que o escritório acha o caso."); return; }
   const temQuesitos = ANEXO || ["reclamante","reclamada","reclamada2"].some(p=>
@@ -2239,7 +2254,7 @@ async function exportar(nuvem){
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
       modo: MODO_QUESITOS ? "so_quesitos" : "completo",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.20-2026-09-28"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.21-2026-09-29"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       const tFull=(ANEXO_TEXTO_FULL&&ANEXO_TEXTO_FULL.length>(ANEXO.texto||"").length)?ANEXO_TEXTO_FULL:ANEXO.texto;
@@ -2359,7 +2374,7 @@ function registroParaBackup(j){
   if(me.n_reclamadas) d.campos.meta_n_reclamadas=String(me.n_reclamadas);
   return d;
 }
-const NUVEM_URL="https://hwpkszogjfqmjsvrxvji.supabase.co/functions/v1/troca-laudos";
+const NUVEM_URL="https://kwanwgmjazudocgrlmbs.supabase.co/functions/v1/troca-laudos";
 function codigoEscritorio(renovar){
   let c=null; try{ c=localStorage.getItem("vistoria_codigo"); }catch(e){}
   if(!c || renovar){
@@ -2376,6 +2391,25 @@ async function nuvem(acao, params, corpo){
     : {headers:{"x-codigo":cod}});
   if(r.status===401){
     if(codigoEscritorio(true)) return nuvem(acao, params, corpo);
+    return null;
+  }
+  return r;
+}
+async function nuvemEscritorio(acao, params, corpo){
+  let cod=null; try{ cod=localStorage.getItem("vistoria_codigo_escritorio"); }catch(e){}
+  if(!cod){ await avisar("Modo escritório desligado", "Abra o formulário pelo endereço terminado em #escritorio e digite o código de revisão do escritório."); return null; }
+  const qs=new URLSearchParams(Object.assign({acao}, params||{}));
+  const r=await fetch(NUVEM_URL+"?"+qs, corpo!==undefined
+    ? {method:"POST", headers:{"x-codigo":cod,"content-type":"application/json"}, body:corpo}
+    : {headers:{"x-codigo":cod}});
+  if(r.status===401){
+    try{ localStorage.removeItem("vistoria_codigo_escritorio"); }catch(e){}
+    await avisar("O código de revisão não foi aceito", "Ele foi esquecido neste aparelho. Abra de novo pelo endereço terminado em #escritorio e digite o código de revisão atual.");
+    return null;
+  }
+  if(r.status===403){
+    const j=await r.json().catch(()=>({}));
+    await avisar("Sem permissão", String(j.erro||"Este código não pode fazer isso.")+"\n\nConfira se o código guardado é o código de revisão do escritório.");
     return null;
   }
   return r;
@@ -2402,7 +2436,11 @@ async function enviarNuvem(nome, conteudo){
           }catch(e){ faltas.push("o arquivo do processo"); }
         } else faltas.push("o arquivo do processo ("+Math.round(ANEXO_FILE.size/1048576)+" MB, maior que o limite de 24 MB — coloque-o no OneDrive, em Laudos → Troca → 1. Enviar)");
       } else if(ANEXO){ faltas.push("o arquivo do processo (não está mais neste aparelho — anexe de novo se o escritório precisar)"); }
-      window.__nuvemExtras={extras, faltas};
+      let estado=null, semPreparo=null;
+      if(MODO_QUESITOS && extras.some(x=>x.startsWith(base+"_referencia."))){
+        ({estado, semPreparo}=await pedirPreparo(base));
+      }
+      window.__nuvemExtras={extras, faltas, base, estado, semPreparo};
       const ex=window.__nuvemExtras||{extras:[],faltas:[]};
       posExportar("nuvem", ex);
     } else await avisar("O escritório não aceitou o envio", (j.erro||("erro "+r.status))+"\n\nTente de novo daqui a pouco. Se não der, use \"Guardar uma cópia neste aparelho\", na tela de envio.");
@@ -2442,7 +2480,9 @@ const TELAS_NUVEM = {
     dica:"Toque em Baixar — o laudo abre em Word, para conferir e completar. Baixado, ele sai desta lista e fica no histórico.",
     vazio:"Nenhum laudo pronto no escritório por enquanto.",
     filtro:a=>/[.]docx$/i.test(a.nome) && !/_(processo|referencia)[.]/i.test(a.nome),
-    linha:a=>`<b>${esc(a.nome)}</b><div class="dica">${a.tamanho?Math.max(1,Math.round(a.tamanho/1024))+" KB":""}</div>`,
+    linha:a=>`<b>${esc(a.nome)}</b><div class="dica">${a.tamanho?Math.max(1,Math.round(a.tamanho/1024))+" KB":""}</div>`
+      +(/_automatico[.]docx$/i.test(a.nome)?`<div class="selo-auto">automático — não revisado pelo escritório</div>`:"")
+      +(/_quesitos(_automatico)?[.]docx$/i.test(a.nome)?`<div class="dica">Confira no Word o PÁG. do índice e o nº de folhas.</div>`:""),
     rotulo:"Baixar", fazendo:"Baixando…",
     async executa(a, hist){
       const rr=await nuvem("buscar", hist?{nome:a.nome,pasta:"historico"}:{nome:a.nome});
@@ -2641,6 +2681,197 @@ async function enviarRespostas(doc, nome, r){
   }
 }
 
+const LIDO_ESC={};
+const LIDO_DOC={};
+async function abrirEscritorio(){
+  let cod=null; try{ cod=localStorage.getItem("vistoria_codigo_escritorio"); }catch(e){}
+  if(!cod){
+    const dig=await dialogo({titulo:"Código de revisão do escritório", campo:true, sim:"Entrar", nao:"Cancelar",
+      texto:"Digite o código de revisão do escritório. Ele fica guardado neste aparelho, separado do código que o perito usa."});
+    if(!dig) return;
+    let r=null, j={};
+    try{ r=await fetch(NUVEM_URL+"?acao=papel",{headers:{"x-codigo":dig}}); j=await r.json().catch(()=>({})); }
+    catch(e){ await avisar("Sem internet", "Não consegui falar com o escritório ("+e.message+")."); return; }
+    if(!r.ok || j.papel!=="escritorio"){
+      await avisar("Este não é o código de revisão",
+        (j.papel==="perito" ? "Este é o código do perito." : "O escritório não reconheceu este código.")
+        +" Nada foi guardado neste aparelho.");
+      return;
+    }
+    try{ localStorage.setItem("vistoria_codigo_escritorio", dig); }catch(e){}
+  }
+  const pega=async(acao, params)=>{
+    const r=await nuvemEscritorio(acao, params);
+    if(!r) return null;
+    return r.ok ? await r.json().catch(()=>undefined) : undefined;
+  };
+  const semQuesitos=n=>n.replace(/_quesitos[.]docx$/i,"");
+  let fila=[], lista=[], estados={}, rels={}, calib;
+  try{
+    const la=await pega("listar",{pasta:"aprovacao"}); if(la===null) return;
+    const docs=((la&&la.arquivos)||[]).filter(a=>/_quesitos[.]docx$/i.test(a.nome));
+    const le=await pega("estados",{}); if(le===null) return;
+    lista=(le && Array.isArray(le.estados) ? le.estados : [])
+      .filter(e=>e && typeof e==="object" && typeof e.estado==="string" && typeof e.base==="string");
+    lista.forEach(e=>{ estados[e.base]=e; });
+    fila=docs.filter(a=>{ const e=estados[semQuesitos(a.nome)]; return !!e && e.estado==="aprovacao"; });
+    for(const a of fila){
+      const rel=await pega("buscar",{pasta:"saida", nome:semQuesitos(a.nome)+"_relatorio.json"}); if(rel===null) return;
+      rels[a.nome]=rel && typeof rel==="object" ? rel : null;
+    }
+    calib=await pega("buscar",{pasta:"estado", nome:"calibracao.json"}); if(calib===null) return;
+  }catch(e){ avisar("Sem internet", "Não consegui falar com o escritório ("+e.message+")."); return; }
+  const cs=(calib && calib.so_quesitos) || {modo_entrega:"calibracao", seguidas:0, meta:5, virou_direto_em:null};
+  const recentes=(x,y)=>String(y.em||"").localeCompare(String(x.em||""));
+  const doPerito=e=>e.estado==="parado" && e.para==="perito";
+  const parados=lista.filter(e=>!doPerito(e) && ["parado","atrasado","reprovado"].includes(e.estado)).sort(recentes);
+  const esperando=lista.filter(doPerito).sort(recentes);
+  const dataBR=s=>{ const m=String(s||"").match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:""; };
+  const botao=t=>{ const b=document.createElement("button"); b.className="add"; b.type="button"; b.textContent=t; return b; };
+  const titulo=t=>{ const h=document.createElement("h3"); h.textContent=t; h.style.cssText="font-size:1.05rem;margin:1rem 0 .3rem"; return h; };
+
+  let m=document.getElementById("telaEscritorio"); if(m) m.remove();
+  m=document.createElement("div"); m.id="telaEscritorio";
+  m.setAttribute("role","dialog"); m.setAttribute("aria-modal","true"); m.setAttribute("aria-label","Modo escritório");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99;display:flex;align-items:center;justify-content:center;padding:.6rem";
+  const cx=document.createElement("div");
+  cx.style.cssText="background:var(--cinza);border-radius:10px;max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:.9rem";
+  cx.innerHTML="<b>Modo escritório — Só quesitos</b>"
+    +`<div class="dica" id="escCalibracao">${cs.modo_entrega==="direto"
+        ? "Envio direto ao perito"+(cs.virou_direto_em?" desde "+esc(dataBR(cs.virou_direto_em)):"")+". O documento sai com o selo automático, sem passar por aqui."
+        : `Calibração: ${+cs.seguidas||0} de ${+cs.meta||5} aprovações seguidas. Até lá, todo documento passa por aqui.`}</div>`;
+  if(cs.modo_entrega==="direto"){
+    const bV=botao("Voltar a passar por mim");
+    bV.onclick=async()=>{
+      if(!await perguntar({titulo:"Voltar a revisar antes de mandar?",
+          texto:"Os próximos documentos voltam a esperar a sua aprovação, e a conta das aprovações seguidas recomeça do zero.",
+          nao:"Manter o envio direto", sim:"Voltar a passar por mim"})) return;
+      bV.disabled=true;
+      try{
+        const r=await nuvemEscritorio("voltar_calibracao",{},""); if(!r) return;
+        const j=await r.json().catch(()=>({}));
+        if(!r.ok) throw new Error(j.erro||("erro "+r.status));
+        await avisar("Calibração de volta", "Os próximos documentos esperam a sua aprovação.");
+        abrirEscritorio();
+      }catch(e){ avisar("Não consegui", e.message); }
+      finally{ bV.disabled=false; }
+    };
+    cx.appendChild(bV);
+  }
+  cx.appendChild(titulo(`Para aprovar (${fila.length})`));
+  if(!fila.length) cx.insertAdjacentHTML("beforeend", `<div class="ad-vazio">Nada esperando aprovação.</div>`);
+  fila.forEach(a=>{
+    const rel=rels[a.nome], q=rel && rel.quesitos;
+    const peso=v=>(/^REV/.test(String(v.codigo||""))?2:0)+(v.nivel==="erro"?1:0);
+    const avisos=(rel && Array.isArray(rel.avisos) ? rel.avisos : [])
+      .filter(v=>v && typeof v==="object").sort((x,y)=>peso(y)-peso(x));
+    const hashListado=String((estados[semQuesitos(a.nome)]||{}).hash_entrada||"");
+    const espera=Number(rel && rel.duracao_desde_recebido_s);
+    const d=document.createElement("div"); d.className="ad-item";
+    d.innerHTML=`<h4>${esc(cnjDoNome(a.nome))}</h4>`
+      +`<div class="dica">${esc(a.nome)}${espera>0 ? " · pronto em "+Math.max(1,Math.round(espera/60))+" min" : ""}</div>`
+      +(q ? `<div class="perg">Respondidos: ${+q.respondidos||0} · aguardando o perito: ${+q.aguardando||0} · contestados pela segunda leitura: ${+q.contestados||0}</div>`
+          : `<div class="perg">O relatório deste caso não veio.</div>`)
+      +(avisos.length ? `<ul class="perg">${avisos.map(v=>`<li>${esc(v.codigo||"")}: ${esc(v.msg||"")}</li>`).join("")}</ul>` : "");
+    const rod=document.createElement("div"); rod.className="ad-rodape";
+    const bB=botao("Baixar"), bA=botao("Aprovar e enviar"), bR=botao("Reprovar");
+    bB.onclick=async()=>{
+      bB.disabled=true; bB.textContent="Baixando…";
+      try{
+        if(!(window.crypto && crypto.subtle)) throw new Error("este navegador não sabe conferir o documento. Abra o formulário pelo endereço https de sempre.");
+        const rr=await nuvemEscritorio("buscar",{nome:a.nome, pasta:"aprovacao"}); if(!rr) return;
+        if(!rr.ok) throw new Error("o documento não veio (erro "+rr.status+")");
+        const buf=await rr.arrayBuffer();
+        const sha=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buf)))
+          .map(x=>x.toString(16).padStart(2,"0")).join("");
+        const u=URL.createObjectURL(new Blob([buf], {type:rr.headers.get("content-type")||"application/octet-stream"})),
+              el=document.createElement("a");
+        el.href=u; el.download=a.nome; document.body.appendChild(el); el.click(); el.remove();
+        setTimeout(()=>URL.revokeObjectURL(u),8000);
+        LIDO_ESC[a.nome]=hashListado; LIDO_DOC[a.nome]=sha;
+      }catch(e){ avisar("Não consegui baixar", e.message); }
+      finally{ bB.disabled=false; bB.textContent="Baixar"; }
+    };
+    bA.onclick=async()=>{
+      if(!LIDO_DOC[a.nome]){ await avisar("Baixe o documento primeiro", "Baixe e leia o documento antes de aprovar."); return; }
+      if(!await perguntar({titulo:"Aprovar e mandar ao perito?",
+          texto:`${cnjDoNome(a.nome)}\n\nO documento vai para Laudos prontos do perito e sai desta fila.`,
+          nao:"Voltar", sim:"Aprovar e enviar"})) return;
+      bA.disabled=true; bA.textContent="Aprovando…";
+      try{
+        const rr=await nuvemEscritorio("aprovar",{nome:a.nome, hash:LIDO_ESC[a.nome], hash_doc:LIDO_DOC[a.nome]},""); if(!rr) return;
+        const j=await rr.json().catch(()=>({}));
+        if(!rr.ok || !j.ok) throw new Error(j.erro||("erro "+rr.status));
+        delete LIDO_ESC[a.nome]; delete LIDO_DOC[a.nome];
+        const c=j.calibracao && (j.calibracao.so_quesitos||j.calibracao);
+        await avisar("Aprovado ✓", !c ? "" : c.modo_entrega==="direto"
+          ? "Com esta aprovação a calibração fechou: os próximos vão direto ao perito, com o selo automático."
+          : `${+c.seguidas||0} de ${+c.meta||5} aprovações seguidas.`);
+        abrirEscritorio();
+      }catch(e){ avisar("Não consegui aprovar", e.message); }
+      finally{ bA.disabled=false; bA.textContent="Aprovar e enviar"; }
+    };
+    bR.onclick=()=>{
+      const s=document.createElement("div"); s.id="telaReprovar";
+      s.setAttribute("role","dialog"); s.setAttribute("aria-modal","true"); s.setAttribute("aria-label","Reprovar");
+      s.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:110;display:flex;align-items:center;justify-content:center;padding:.6rem";
+      const sx=document.createElement("div");
+      sx.style.cssText="background:var(--papel);border-radius:10px;max-width:560px;width:100%;padding:.9rem";
+      sx.innerHTML=`<b>Reprovar — ${esc(cnjDoNome(a.nome))}</b>`
+        +`<div class="dica">O motivo vai junto do caso e é tratado na sessão. O documento não vai ao perito.</div>`;
+      const ta=document.createElement("textarea"); ta.id="reprovarMotivo"; ta.rows=4; ta.style.marginTop=".5rem";
+      ta.placeholder="O que está errado";
+      const linha=document.createElement("div"); linha.className="ad-rodape";
+      const bOk=botao("Reprovar"), bVolta=botao("Voltar");
+      bOk.id="reprovarEnviar"; bOk.disabled=true;
+      ta.oninput=()=>{ bOk.disabled=!ta.value.trim(); };
+      bVolta.onclick=()=>s.remove();
+      bOk.onclick=async()=>{
+        const motivo=ta.value.trim(); if(!motivo) return;
+        bOk.disabled=true; bOk.textContent="Reprovando…";
+        try{
+          const r=await nuvemEscritorio("reprovar",{nome:a.nome},JSON.stringify({motivo})); if(!r) return;
+          const j=await r.json().catch(()=>({}));
+          if(!r.ok || !j.ok) throw new Error(j.erro||("erro "+r.status));
+          delete LIDO_ESC[a.nome]; delete LIDO_DOC[a.nome];
+          s.remove();
+          await avisar("Reprovado", "O documento sai desta fila. O caso fica em Parados e atrasados, com o motivo, para ser tratado na sessão.");
+          abrirEscritorio();
+        }catch(e){ avisar("Não consegui reprovar", e.message); }
+        finally{ bOk.textContent="Reprovar"; bOk.disabled=!ta.value.trim(); }
+      };
+      linha.appendChild(bOk); linha.appendChild(bVolta);
+      sx.appendChild(ta); sx.appendChild(linha); s.appendChild(sx); document.body.appendChild(s); ta.focus();
+    };
+    rod.appendChild(bB); rod.appendChild(bA); rod.appendChild(bR);
+    d.appendChild(rod); cx.appendChild(d);
+  });
+  const secao=(id, t)=>{ const s=document.createElement("section"); s.id=id; s.appendChild(titulo(t)); cx.appendChild(s); return s; };
+  const ROTULO={parado:"Parado", atrasado:"Atrasado", reprovado:"Reprovado"};
+  const itemEstado=e=>{
+    const d=document.createElement("div"); d.className="ad-item";
+    d.innerHTML=`<h4>${esc(cnjDoNome(String(e.base||"")+"_"))}</h4>`
+      +`<div class="dica">${esc(ROTULO[e.estado]||e.estado)}${e.codigo?" ("+esc(e.codigo)+")":""}`
+      +`${e.para?" · com "+(e.para==="perito"?"o perito":"o escritório"):""}${e.em?" · desde "+esc(dataBR(e.em)):""}</div>`
+      +(e.motivo?`<div class="perg">${esc(e.motivo)}</div>`:"")
+      +(/^https:\/\/claude[.]ai\//.test(String(e.execucao||""))?`<a href="${esc(e.execucao)}" target="_blank" rel="noopener">Ver a execução</a>`:"");
+    return d;
+  };
+  const sP=secao("escParados", `Parados e atrasados (${parados.length})`);
+  if(!parados.length) sP.insertAdjacentHTML("beforeend", `<div class="ad-vazio">Nenhum caso parado, atrasado ou reprovado.</div>`);
+  parados.forEach(e=>sP.appendChild(itemEstado(e)));
+  const sE=secao("escPerito", `Esperando o perito (${esperando.length})`);
+  if(!esperando.length) sE.insertAdjacentHTML("beforeend", `<div class="ad-vazio">Nenhum caso esperando o perito.</div>`);
+  else sE.insertAdjacentHTML("beforeend", `<div class="dica">O preparo parou por algo que só o perito resolve. O motivo abaixo é o detalhe que só o escritório vê; o perito lê no formulário o texto fixo do código.</div>`);
+  esperando.forEach(e=>sE.appendChild(itemEstado(e)));
+  if(lista.length>=200) cx.insertAdjacentHTML("beforeend", `<div class="dica">A lista traz os 200 casos mais recentes; os mais antigos ficam de fora.</div>`);
+  const rod=document.createElement("div"); rod.className="ad-rodape";
+  const bAt=botao("Atualizar"), bF=botao("Fechar");
+  bAt.onclick=()=>abrirEscritorio(); bF.onclick=()=>m.remove();
+  rod.appendChild(bAt); rod.appendChild(bF); cx.appendChild(rod);
+  m.appendChild(cx); document.body.appendChild(m);
+}
+
 function aplicarImportado(j){
       if(j.backup_formulario && j.backup_formulario.campos){ aplicar(j.backup_formulario); }
       else if(j.campos && !Array.isArray(j.campos)){ aplicar(j); }
@@ -2791,7 +3022,116 @@ function montarPes(){
     d.querySelector(".corpo").appendChild(pe);
   });
 }
-function fecharTela(id){ document.getElementById(id).classList.add("oculto"); }
+const CONSULTA_ESTADO_MS=20000, CONSULTA_ESTADO_TETO_MS=1800000;
+const ESTADOS_FINAIS=["pronto","parado","reprovado","atrasado"];
+let CONSULTA=null;
+const TEXTO_PARADA={
+  P1:"O laudo base não chegou, não abriu ou não tem a CONCLUSÃO. Confira se anexou o laudo pronto deste caso, em .docx (no Word: Salvar como → Documento do Word), e envie de novo.",
+  P2:"O laudo base parece não ser deste processo (número, reclamante, reclamada ou função). O escritório vai confirmar com o senhor.",
+  P3:"Não há quesito a responder neste laudo: os quesitos já estão respondidos ou não foram encontrados.",
+  P4:"O texto do processo chegou incompleto. Anexe o processo de novo na seção 2 e envie outra vez.",
+  P5:"O laudo base ou os quesitos citam o número de outro processo. Confira se anexou o laudo deste caso e envie de novo."};
+function textoEstado(e){
+  const s=e && typeof e==="object" ? e.estado : null;
+  if(s==="recebido"||s==="processando") return {titulo:"Preparando os quesitos…",
+    texto:"O escritório está colocando as respostas no seu laudo. Pode fechar esta tela: quando ficar pronto, o laudo aparece em Laudos prontos."};
+  if(s==="aprovacao"||s==="reprovado") return {titulo:"O escritório está revisando",
+    texto:"As respostas já foram colocadas no laudo. O escritório confere antes de mandar."};
+  if(s==="pronto") return {titulo:"Pronto — baixar em Laudos prontos",
+    texto:"Na tela de entrada, no cartão do escritório, toque em Laudos prontos. Antes de protocolar, confira no Word o PÁG. do índice e o nº de folhas: as respostas mudam a paginação."};
+  if(s==="parado" && e.para==="perito") return {titulo:"O preparo parou",
+    texto:(Object.prototype.hasOwnProperty.call(TEXTO_PARADA, e.codigo) && TEXTO_PARADA[e.codigo])
+          || "O escritório vai explicar o que falta."};
+  if(s==="parado"||s==="atrasado") return {titulo:"O escritório foi avisado",
+    texto:"O preparo automático não terminou. O escritório cuida do caso e manda o laudo."};
+  return null;
+}
+function desenharEstado(el, estado){
+  if(!el) return;
+  const t=textoEstado(estado);
+  if(!t){ el.innerHTML=""; el.classList.add("oculto"); return; }
+  el.innerHTML=`<b>${esc(t.titulo)}</b><p>${esc(t.texto)}</p>`;
+  el.classList.remove("oculto");
+}
+function pararConsulta(){
+  if(CONSULTA && CONSULTA.timer) clearTimeout(CONSULTA.timer);
+  CONSULTA=null;
+}
+function iniciarConsulta(base, estado){
+  pararConsulta();
+  if(!base || !estado || ESTADOS_FINAIS.includes(estado.estado)) return;
+  CONSULTA={base, inicio:Date.now(), timer:null};
+  CONSULTA.timer=setTimeout(()=>consultarEstado(base), CONSULTA_ESTADO_MS);
+}
+async function pedirPreparo(base){
+  try{
+    const rc=await nuvem("concluir",{nome:base+"_vistoria.json"},"");
+    if(!rc) return {estado:null, semPreparo:"o código deste aparelho não foi aceito"};
+    if(rc.status===403){
+      await avisar("Sem permissão", "O escritório recebeu os arquivos, mas o código deste aparelho não pode pedir o preparo automático dos quesitos. Avise o escritório.");
+      return {estado:null, semPreparo:"sem permissão"};
+    }
+    const jc=await rc.json().catch(()=>null);
+    if(rc.ok && jc && jc.estado && typeof jc.estado==="object" && typeof jc.estado.estado==="string"){
+      try{ localStorage.setItem("vistoria_ultimo_quesitos", base); }catch(e){}
+      return {estado:jc.estado, semPreparo:null};
+    }
+    return {estado:null, semPreparo: rc.ok ? "resposta sem o andamento" : "erro "+rc.status};
+  }catch(e){ return {estado:null, semPreparo:"sem internet"}; }
+}
+function desenharSemPreparo(el, base, motivo){
+  if(!el) return;
+  el.innerHTML="<b>O preparo automático não começou.</b>"
+    +"<p>Toque em Tentar de novo. Se continuar assim, avise o escritório.</p>"
+    +`<div class="dica">Detalhe para o escritório: ${esc(motivo||"sem resposta")}.</div>`;
+  if(base){
+    const b=document.createElement("button");
+    b.type="button"; b.id="btTentarPreparo"; b.className="bt2"; b.textContent="Tentar de novo";
+    b.onclick=async()=>{
+      b.disabled=true; b.textContent="Tentando…";
+      const {estado, semPreparo}=await pedirPreparo(base);
+      if(estado){ desenharEstado(el, estado); iniciarConsulta(base, estado); }
+      else desenharSemPreparo(el, base, semPreparo);
+    };
+    el.appendChild(b);
+  }
+  el.classList.remove("oculto");
+}
+async function consultarEstado(base){
+  const eu=CONSULTA;
+  if(!eu || eu.base!==base) return;
+  clearTimeout(eu.timer); eu.timer=null;
+  const tela=document.getElementById("telaEnviado");
+  if(!tela || tela.classList.contains("oculto") || Date.now()-eu.inicio>CONSULTA_ESTADO_TETO_MS){ pararConsulta(); return; }
+  if(document.visibilityState==="visible"){
+    let r;
+    try{ r=await nuvem("estado",{nome:base+"_vistoria.json"}); }catch(e){ r=undefined; }
+    if(CONSULTA!==eu) return;
+    if(r===null){ pararConsulta(); return; }
+    if(r && r.status===403){
+      pararConsulta();
+      avisar("Sem permissão", "Este aparelho não consegue acompanhar o preparo. O escritório recebeu os arquivos.");
+      return;
+    }
+    if(r && r.ok){
+      const j=await r.json().catch(()=>null);
+      if(CONSULTA!==eu) return;
+      const e=j && j.estado && typeof j.estado==="object" && typeof j.estado.estado==="string" ? j.estado : null;
+      if(e){
+        desenharEstado(document.getElementById("enviadoEstado"), e);
+        if(ESTADOS_FINAIS.includes(e.estado)){ pararConsulta(); return; }
+      }
+    }
+  }
+  eu.timer=setTimeout(()=>consultarEstado(base), CONSULTA_ESTADO_MS);
+}
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState==="visible" && CONSULTA) consultarEstado(CONSULTA.base);
+});
+function fecharTela(id){
+  document.getElementById(id).classList.add("oculto");
+  if(id==="telaEnviado") pararConsulta();
+}
 function listaNumeros(ns){ return ns.length>1 ? ns.slice(0,-1).join(", ")+" e "+ns[ns.length-1] : ns[0]; }
 function abrirEnvio(){
   flushSalvar();
@@ -2842,8 +3182,14 @@ function mostrarEnviado(info){
     [v("processo_reclamada")||v("processo_reclamante"), v("processo_numero_cnj")].filter(Boolean).join(" · ")+". O escritório já recebeu.";
   document.getElementById("enviadoFaltas").textContent =
     info && info.faltas && info.faltas.length ? "Não foi junto: "+info.faltas.join("; ")+"." : "";
+  pararConsulta();
+  const el=document.getElementById("enviadoEstado");
+  const est=info && info.estado && typeof info.estado==="object" && typeof info.estado.estado==="string" ? info.estado : null;
+  if(info && info.semPreparo) desenharSemPreparo(el, info.base, info.semPreparo);
+  else desenharEstado(el, est);
   fecharTela("telaEnvio");
   document.getElementById("telaEnviado").classList.remove("oculto");
+  iniciarConsulta(info && info.base, est);
 }
 function horaMin(ms){ return new Date(ms).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); }
 let SELO_ERRO=false;
@@ -2979,19 +3325,23 @@ function mudarLetra(d){
   desenharLetra();
 }
 let DLG_RESOLVE=null;
-function dialogo({titulo, texto="", sim, nao=null, perigo=false}){
+function dialogo({titulo, texto="", sim, nao=null, perigo=false, campo=false}){
   const el=document.getElementById("dialogo");
   if(DLG_RESOLVE) DLG_RESOLVE(false);
   document.getElementById("dlgTitulo").textContent=titulo;
   document.getElementById("dlgTexto").textContent=texto;
   const bs=document.getElementById("dlgSim"), bn=document.getElementById("dlgNao");
+  const cp=document.getElementById("dlgCampo");
+  cp.value=""; cp.classList.toggle("oculto", !campo);
+  cp.onkeydown=campo ? ev=>{ if(ev.key==="Enter") bs.click(); } : null;
   bs.textContent=sim; bs.classList.toggle("perigo", !!perigo);
   bn.textContent=nao||""; bn.classList.toggle("oculto", !nao);
   el.classList.remove("oculto");
-  (nao ? bn : bs).focus();
+  (campo ? cp : (nao ? bn : bs)).focus();
   return new Promise(res=>{
-    DLG_RESOLVE=v=>{ DLG_RESOLVE=null; el.classList.add("oculto"); res(v); };
-    bs.onclick=()=>DLG_RESOLVE(true); bn.onclick=()=>DLG_RESOLVE(false);
+    DLG_RESOLVE=v=>{ DLG_RESOLVE=null; el.classList.add("oculto"); cp.classList.add("oculto"); cp.value=""; res(v); };
+    bs.onclick=()=>DLG_RESOLVE(campo ? (cp.value.trim()||null) : true);
+    bn.onclick=()=>DLG_RESOLVE(campo ? null : false);
   });
 }
 function perguntar(o){ return dialogo(o); }
@@ -3056,6 +3406,8 @@ async function abrirEntrada(){
       `<p>${esc(partes.join(" · "))}</p>`+
       `<button type="button" class="bt1" onclick="fecharEntrada()">Continuar de onde parei</button></div>`;
   }
+  let comEsc=false; try{ comEsc=!!localStorage.getItem("vistoria_codigo_escritorio"); }catch(x){}
+  document.getElementById("btModoEscritorio").classList.toggle("oculto", !comEsc);
   t.classList.remove("oculto");
   const foco=t.querySelector(".bt1")||t.querySelector(".bt2"); if(foco) foco.focus();
   const e=document.getElementById("entEscritorio"); e.innerHTML="";
@@ -3074,6 +3426,21 @@ async function abrirEntrada(){
   e.innerHTML=`<div class="cartao"><b>${total?`O escritório mandou ${total} ${total>1?"coisas":"coisa"}`:"Nada novo do escritório"}</b>`+
     (total?"":`<p>Para ver o que já veio antes, toque num dos botões.</p>`)+
     `<div class="ent-bts">${bts}</div></div>`;
+  let ult=null; try{ ult=localStorage.getItem("vistoria_ultimo_quesitos"); }catch(x){}
+  if(ult){
+    try{
+      const cod=localStorage.getItem("vistoria_codigo");
+      const r=await fetch(NUVEM_URL+"?"+new URLSearchParams({acao:"estado", nome:ult+"_vistoria.json"}),{headers:{"x-codigo":cod}});
+      const j=r.ok ? await r.json().catch(()=>null) : null;
+      const est=j && j.estado && typeof j.estado==="object" && typeof j.estado.estado==="string" ? j.estado : null;
+      const t=textoEstado(est);
+      const velho=est && ESTADOS_FINAIS.includes(est.estado) && Date.now()-Date.parse(est.em||"")>7*864e5;
+      const bts2=e.querySelector(".ent-bts");
+      const doPerito=est && est.estado==="parado" && est.para==="perito";
+      if(t && !velho && bts2) bts2.insertAdjacentHTML("beforebegin",
+        `<p id="entUltimoQuesitos">Quesitos de ${esc(cnjDoNome(ult))}: ${esc(t.titulo)}${doPerito?" — "+esc(t.texto):""}</p>`);
+    }catch(x){}
+  }
 }
 function informarCodigo(){ if(codigoEscritorio(true)) abrirEntrada(); }
 function fecharEntrada(){
@@ -3192,7 +3559,8 @@ function iniciarInterface(){
   DESKTOP.addEventListener("change", ()=>{ if(DESKTOP.matches && !SECAO_ATIVA) irPara(primeiraSecao()); });
   let pular=false;
   try{ pular=!!sessionStorage.getItem("vistoria_pular_entrada"); sessionStorage.removeItem("vistoria_pular_entrada"); }catch(e){}
-  if(pular){ if(typeof talvezTutorial==="function") talvezTutorial(); }
+  if(location.hash==="#escritorio") abrirEscritorio();
+  else if(pular){ if(typeof talvezTutorial==="function") talvezTutorial(); }
   else abrirEntrada();
 }
 iniciarInterface();
