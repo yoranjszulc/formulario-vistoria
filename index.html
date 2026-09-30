@@ -271,7 +271,7 @@
   <div class="topo">
     <div class="caso">
       <h1 id="tituloCaso">Vistoria</h1>
-      <div class="sub">Perito Algério Szulc · v6.21</div>
+      <div class="sub">Perito Algério Szulc · v6.22</div>
       <div id="selo" class="selo vazio" role="status" aria-live="polite">Nada preenchido ainda</div>
     </div>
     <span id="statusSalvo" hidden></span>
@@ -280,7 +280,7 @@
       <button type="button" onclick="abrirRascunhos()" data-dica="Mostra as vistorias guardadas neste aparelho e deixa abrir outra"><svg class="ico" aria-hidden="true"><use href="#i-pasta"/></svg>Outras vistorias</button>
       <button type="button" id="btLetraMenos" onclick="mudarLetra(-1)" data-dica="Diminui a letra em todo o formulário, até o tamanho normal"><svg class="ico" aria-hidden="true"><use href="#i-menor"/></svg>Letra menor</button>
       <button type="button" id="btLetra" onclick="mudarLetra(1)" data-dica="Aumenta a letra em todo o formulário. São três tamanhos; o botão Letra menor volta"><svg class="ico" aria-hidden="true"><use href="#i-maior"/></svg>Letra maior</button>
-      <button type="button" id="btComoUsar" onclick="tutorial(1)" data-dica="Abre o tutorial que explica o formulário em 5 passos"><svg class="ico" aria-hidden="true"><use href="#i-ajuda"/></svg>Como usar</button>
+      <button type="button" id="btComoUsar" onclick="tutorial(1)" data-dica="Abre o tutorial que explica o formulário em 6 passos"><svg class="ico" aria-hidden="true"><use href="#i-ajuda"/></svg>Como usar</button>
     </div>
   </div>
   <ol id="roteiro" class="roteiro" aria-label="Os três passos"></ol>
@@ -324,7 +324,7 @@
   anexar. O que vier do processo fica amarelo até o senhor mexer no campo; campo que o senhor já
   preencheu nunca é trocado. Os quesitos achados no processo vão para as seções 14 e 15 —
   confira se estão na parte certa (reclamante ou reclamada).</div></details>
-  <label>Laudo já formatado pelo escritório (Word) — opcional</label>
+  <label id="rotuloRef">Laudo já formatado pelo escritório (Word) — opcional</label>
   <input type="file" id="refInput" accept=".docx,.doc" onchange="anexarReferencia(event)">
   <div class="valida" id="v_ref"></div>
   <button type="button" class="add" id="btRemoverRef" onclick="confirmarRemover('referencia')" data-dica="Tira o laudo anexado deste formulário">Remover o laudo anexado</button>
@@ -2254,7 +2254,7 @@ async function exportar(nuvem){
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
       modo: MODO_QUESITOS ? "so_quesitos" : "completo",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.21-2026-09-29"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.22-2026-09-30"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       const tFull=(ANEXO_TEXTO_FULL&&ANEXO_TEXTO_FULL.length>(ANEXO.texto||"").length)?ANEXO_TEXTO_FULL:ANEXO.texto;
@@ -3243,7 +3243,14 @@ function estadoRoteiro(st){
       ir:()=>{ const s=st.find(x=>x.falta)||st.find(x=>x.conferir)||st[0]; irPara(s.id); }},
     {n:3, titulo:"Enviar ao escritório", ...p3, ir:()=>abrirEnvio()}]};
 }
+const ROTULO_REF={completo:"Laudo já formatado pelo escritório (Word) — opcional",
+  quesitos:"O seu laudo pronto (.docx) — é nele que entram as respostas"};
+function rotuloRefDoModo(){
+  const l=document.getElementById("rotuloRef");
+  if(l) l.textContent=modoPedido()==="quesitos" ? ROTULO_REF.quesitos : ROTULO_REF.completo;
+}
 function desenharRoteiro(st){
+  rotuloRefDoModo();
   const ol=document.getElementById("roteiro"); if(!ol) return;
   const {passos, atual}=estadoRoteiro(st);
   ol.innerHTML="";
@@ -3453,22 +3460,36 @@ function comecar(modo){
     novaVistoria(); return;
   }
   try{ localStorage.setItem(LS+"_modo", modo); }catch(e){}
+  rotuloRefDoModo();
   fecharEntrada(); irPara(primeiraSecao());
 }
 
-const TOUR=[
+const TOUR_VERSAO="2";
+function tourDoModo(){
+  const q=modoPedido()==="quesitos";
+  return [
   {alvo:"#selo", titulo:"O formulário guarda tudo sozinho",
    texto:"Enquanto o senhor escreve, tudo fica guardado neste aparelho. Este selo mostra se está tudo guardado e a hora da última gravação. Pode fechar a janela sem medo: ao abrir de novo, a vistoria estará aqui."},
-  {alvo:"#roteiro", titulo:"O caminho tem 3 passos",
+  q ? {alvo:"#roteiro", titulo:"Só os quesitos: 3 passos",
+   texto:"Anexar o processo, anexar o seu laudo pronto (em .docx) e enviar ao escritório. O passo em azul é onde o senhor está. Clicar num passo leva até ele."}
+    : {alvo:"#roteiro", titulo:"O caminho tem 3 passos",
    texto:"Anexar o processo, preencher e conferir, enviar ao escritório. O passo em azul é onde o senhor está. Clicar num passo leva até ele."},
-  {alvo:"#indice", titulo:"As partes do laudo",
+  q ? {alvo:"#indice", titulo:"Só três seções importam aqui",
+   texto:"A seção 2, onde vão o processo e o seu laudo, e as seções 14 e 15, com os quesitos. Confira se os quesitos do reclamante e os da reclamada caíram na caixa certa. As outras seções o senhor pode deixar em branco."}
+    : {alvo:"#indice", titulo:"As partes do laudo",
    texto:"Aqui estão as 16 seções. O número vermelho diz quanto falta em cada uma. O senhor pode pular de uma para outra, na ordem que quiser."},
   {alvo:".autofill", titulo:"O campo amarelo veio do processo",
    texto:"Quando o senhor anexa o processo, o formulário preenche alguns campos sozinho e os pinta de amarelo. Confira cada um: se estiver certo, pode deixar; se estiver errado, é só corrigir por cima."},
+  q ? {alvo:"#btExportar", titulo:"Enviar, e o laudo volta pronto",
+   texto:"Este botão manda o processo e o seu laudo ao escritório. Depois do envio, a tela mostra o andamento: preparando, revisando, pronto. Se parar, ela diz o que fazer. O laudo volta com as respostas dentro, na tela de entrada, em Laudos prontos."}
+    : {alvo:"#btExportar", titulo:"Enviar, e o laudo volta pronto",
+   texto:"Este botão abre a tela de envio, que mostra antes o que ainda falta. Faltar não impede o envio, e nada se apaga depois. Quando o laudo ficar pronto, ele aparece na tela de entrada, em Laudos prontos."},
   {alvo:"#btComoUsar", titulo:"Para ver isto de novo",
    texto:"Este botão abre o tutorial outra vez. E parar o mouse sobre um botão mostra para que ele serve."}];
-let TOUR_N=0;
+}
+let TOUR=[], TOUR_N=0;
 function tutorial(n){
+  if(n===1) TOUR=tourDoModo();
   if(n>TOUR.length) return fecharTutorial();
   TOUR_N=n; const p=TOUR[n-1];
   let alvo=document.querySelector(p.alvo);
@@ -3491,10 +3512,10 @@ function tutorial(n){
 }
 function fecharTutorial(){
   document.getElementById("tour").classList.add("oculto");
-  try{ localStorage.setItem("vistoria_tutorial_visto","1"); }catch(e){}
+  try{ localStorage.setItem("vistoria_tutorial_visto",TOUR_VERSAO); }catch(e){}
 }
 function talvezTutorial(){
-  let visto=true; try{ visto=!!localStorage.getItem("vistoria_tutorial_visto"); }catch(e){}
+  let visto=true; try{ visto=localStorage.getItem("vistoria_tutorial_visto")===TOUR_VERSAO; }catch(e){}
   if(!visto) tutorial(1);
 }
 document.addEventListener("keydown", ev=>{
