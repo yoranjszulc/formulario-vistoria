@@ -271,7 +271,7 @@
   <div class="topo">
     <div class="caso">
       <h1 id="tituloCaso">Vistoria</h1>
-      <div class="sub">Perito Algério Szulc · v6.22</div>
+      <div class="sub">Perito Algério Szulc · v6.23</div>
       <div id="selo" class="selo vazio" role="status" aria-live="polite">Nada preenchido ainda</div>
     </div>
     <span id="statusSalvo" hidden></span>
@@ -2254,7 +2254,7 @@ async function exportar(nuvem){
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
       modo: MODO_QUESITOS ? "so_quesitos" : "completo",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.22-2026-09-30"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.23-2026-10-02"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       const tFull=(ANEXO_TEXTO_FULL&&ANEXO_TEXTO_FULL.length>(ANEXO.texto||"").length)?ANEXO_TEXTO_FULL:ANEXO.texto;
@@ -2449,7 +2449,7 @@ async function enviarNuvem(nome, conteudo){
   }
 }
 function brDataNome(nome){
-  const m=nome.match(/_(\d{4})-(\d{2})-(\d{2})_(vistoria|perguntas|respostas)\.json$/);
+  const m=nome.match(/_(\d{4})-(\d{2})-(\d{2})_(?:identidade_)?(vistoria|perguntas|respostas)\.json$/);
   return m?`${m[3]}/${m[2]}/${m[1]}`:"";
 }
 function cnjDoNome(nome){
@@ -2671,7 +2671,14 @@ async function enviarRespostas(doc, nome, r){
     if(!rr) return false;
     const j=await rr.json().catch(()=>({}));
     if(!rr.ok || !j.ok){ avisar("O escritório não aceitou as respostas", String(j.erro||("erro "+rr.status))); return false; }
-    if(!falta) await nuvem("arquivar",{nome},"");
+    if(typeof j.identidade==="string" && j.identidade!=="corrigida" && j.identidade.indexOf("confirmada")!==0){
+      avisar("O escritório ainda não está esperando esta resposta", "Tente enviar de novo em alguns minutos. A pergunta continua em Perguntas.");
+      return false;
+    }
+    if(!falta){
+      try{ localStorage.removeItem(pergChave(nome)); }catch(e){}
+      await nuvem("arquivar",{nome},"");
+    }
     avisar("Respostas enviadas ao escritório ✓", (itens.length-falta)+" de "+itens.length+" respondidas"
       +(falta?"\nAs que faltam continuam em Perguntas.":""));
     return true;
@@ -3027,7 +3034,7 @@ const ESTADOS_FINAIS=["pronto","parado","reprovado","atrasado"];
 let CONSULTA=null;
 const TEXTO_PARADA={
   P1:"O laudo base não chegou, não abriu ou não tem a CONCLUSÃO. Confira se anexou o laudo pronto deste caso, em .docx (no Word: Salvar como → Documento do Word), e envie de novo.",
-  P2:"O laudo base parece não ser deste processo (número, reclamante, reclamada ou função). O escritório vai confirmar com o senhor.",
+  P2:"O laudo base parece não ser deste processo. Na tela de entrada, no cartão do escritório, toque em Perguntas e responda à pergunta do escritório.",
   P3:"Não há quesito a responder neste laudo: os quesitos já estão respondidos ou não foram encontrados.",
   P4:"O texto do processo chegou incompleto. Anexe o processo de novo na seção 2 e envie outra vez.",
   P5:"O laudo base ou os quesitos citam o número de outro processo. Confira se anexou o laudo deste caso e envie de novo."};
