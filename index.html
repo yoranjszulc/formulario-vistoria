@@ -67,10 +67,11 @@
   .barra button{font:inherit;font-size:1rem;font-weight:bold;min-height:2.8rem;padding:.55rem 1rem;
     border-radius:8px;cursor:pointer;border:2px solid var(--acao)}
   #btExportar{background:var(--acao);color:#fff;flex:1 1 auto;min-width:0}
-  input.pend,select.pend,textarea.pend{border-color:var(--falta);border-width:3px}
-  .pendmsg{color:var(--falta);font-size:.9rem;font-weight:bold;margin-top:.25rem}
-  .item-nr.pendbox>h4::after{content:" — falta responder";color:var(--falta)}
-  button.add.pendbt::after{content:" — falta";color:var(--falta)}
+  body.mostra-faltas input.pend,body.mostra-faltas select.pend,body.mostra-faltas textarea.pend{border-color:var(--falta);border-width:3px}
+  .pendmsg{display:none;color:var(--falta);font-size:.9rem;font-weight:bold;margin-top:.25rem}
+  body.mostra-faltas .pendmsg{display:block}
+  body.mostra-faltas .item-nr.pendbox>h4::after{content:" — falta responder";color:var(--falta)}
+  body.mostra-faltas button.add.pendbt::after{content:" — falta";color:var(--falta)}
   #statusSalvo{font-size:.85rem}
   .oculto{display:none}
   .chk{display:flex;align-items:flex-start;gap:.6rem;font-size:1rem;margin:.5rem 0}
@@ -126,7 +127,8 @@
     padding:.55rem 1rem;cursor:pointer;color:var(--tinta)}
   .ind-item:hover{background:var(--mesa)}
   .ind-item.ativo{background:var(--acao-claro);border-left-color:var(--acao);font-weight:bold}
-  .ind-falta{color:var(--falta);font-weight:bold;white-space:nowrap}
+  .ind-falta{color:var(--apoio);white-space:nowrap}
+  body.mostra-faltas .ind-falta{color:var(--falta);font-weight:bold}
   .ind-ok{color:var(--pronto);font-weight:bold}
   .ind-conferir{flex-basis:100%;font-size:.85rem;color:var(--aviso)}
   .pe-secao{display:flex;justify-content:space-between;gap:1rem;margin-top:1.8rem;padding-top:1rem;
@@ -230,6 +232,27 @@
   .bolha{position:fixed;z-index:80;background:var(--tinta);color:#fff;border-radius:8px;padding:.6rem .8rem;
     font-size:.95rem;line-height:1.4;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.25)}
   .bolha.oculto{display:none}
+  select.seg-fonte{display:none}
+  .seg{display:flex;flex-wrap:wrap;gap:.45rem;margin:.1rem 0 .3rem}
+  .seg button{font:inherit;font-size:1rem;flex:1 1 auto;min-height:2.75rem;padding:.5rem .9rem .5rem .7rem;
+    display:flex;align-items:center;gap:.55rem;text-align:left;
+    border:2px solid var(--borda);border-radius:8px;background:var(--papel);color:var(--tinta);cursor:pointer}
+  .seg button::before{content:"";flex:none;width:1.1rem;height:1.1rem;border-radius:50%;
+    border:2px solid var(--borda);background:var(--papel);box-sizing:border-box}
+  .seg button:hover{background:var(--mesa)}
+  .seg button[aria-pressed="true"]{background:var(--acao);border-color:var(--acao);color:#fff;font-weight:bold}
+  .seg button[aria-pressed="true"]::before{border:.32rem solid #fff;background:var(--acao)}
+  .seg.autofill button[aria-pressed="true"]::before{border-color:var(--tinta);background:var(--anexo)}
+  .seg.autofill button[aria-pressed="true"]{background:var(--anexo);border-color:var(--anexo-borda);color:var(--tinta)}
+  body.mostra-faltas .seg.pend button{border-color:var(--falta);border-width:3px}
+  .seg button:disabled{opacity:.45;cursor:default}
+  .seg.seg-curto{display:grid;gap:.35rem}
+  .seg.seg-curto button{justify-content:center;gap:.35rem;padding:.5rem .3rem}
+  .seg.seg-curto button::before{width:.9rem;height:.9rem}
+  .seg.seg-curto button[aria-pressed="true"]::before{border-width:.26rem}
+  .passo-acao{display:inline-block;margin-top:.45rem;background:var(--acao);color:#fff;border-radius:8px;
+    padding:.35rem .9rem;font-weight:bold;font-size:.95rem}
+  .hbts button{position:relative}
   .voltar-lista{display:none}
   .passo-de{display:none}
   @media(max-width:899px){
@@ -252,8 +275,13 @@
     .pe-secao{flex-direction:column-reverse}
     .pe-secao button{width:100%}
     header .topo{gap:.5rem}
-    .hbts{flex-basis:100%}
+    .hbts{flex-basis:100%;flex-wrap:nowrap}
     .hbts button{font-size:.9rem;padding:.4rem .6rem}
+    .hbts .so-icone{min-width:2.9rem;padding:.4rem}
+    .hbts .so-icone .ico{width:1.5em;height:1.5em}
+    .hbts .so-icone .rot{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+    #btLetraMenos{margin-left:auto}
+    #btNova:not(.oculto){flex:0 0 auto;flex-direction:column;gap:.1rem;padding:.3rem .7rem;font-size:.9rem;line-height:1.2}
   }
 </style>
 </head>
@@ -271,16 +299,16 @@
   <div class="topo">
     <div class="caso">
       <h1 id="tituloCaso">Vistoria</h1>
-      <div class="sub">Perito Algério Szulc · v6.23</div>
+      <div class="sub">Perito Algério Szulc · v6.24</div>
       <div id="selo" class="selo vazio" role="status" aria-live="polite">Nada preenchido ainda</div>
     </div>
     <span id="statusSalvo" hidden></span>
     <div class="hbts">
       <button type="button" id="btADefinir" class="oculto" onclick="abrirADefinir()" data-dica="Pontos que só o senhor pode decidir, mandados pelo escritório"><svg class="ico" aria-hidden="true"><use href="#i-definir"/></svg><span class="rot">A definir</span></button>
       <button type="button" onclick="abrirRascunhos()" data-dica="Mostra as vistorias guardadas neste aparelho e deixa abrir outra"><svg class="ico" aria-hidden="true"><use href="#i-pasta"/></svg>Outras vistorias</button>
-      <button type="button" id="btLetraMenos" onclick="mudarLetra(-1)" data-dica="Diminui a letra em todo o formulário, até o tamanho normal"><svg class="ico" aria-hidden="true"><use href="#i-menor"/></svg>Letra menor</button>
-      <button type="button" id="btLetra" onclick="mudarLetra(1)" data-dica="Aumenta a letra em todo o formulário. São três tamanhos; o botão Letra menor volta"><svg class="ico" aria-hidden="true"><use href="#i-maior"/></svg>Letra maior</button>
-      <button type="button" id="btComoUsar" onclick="tutorial(1)" data-dica="Abre o tutorial que explica o formulário em 6 passos"><svg class="ico" aria-hidden="true"><use href="#i-ajuda"/></svg>Como usar</button>
+      <button type="button" id="btLetraMenos" class="so-icone" onclick="mudarLetra(-1)" data-dica="Letra menor: diminui a letra em todo o formulário, até o tamanho normal"><svg class="ico" aria-hidden="true"><use href="#i-menor"/></svg><span class="rot">Letra menor</span></button>
+      <button type="button" id="btLetra" class="so-icone" onclick="mudarLetra(1)" data-dica="Letra maior: aumenta a letra em todo o formulário. São três tamanhos; o botão Letra menor volta"><svg class="ico" aria-hidden="true"><use href="#i-maior"/></svg><span class="rot">Letra maior</span></button>
+      <button type="button" id="btComoUsar" class="so-icone" onclick="tutorial(1)" data-dica="Como usar: abre o tutorial que explica o formulário em 6 passos"><svg class="ico" aria-hidden="true"><use href="#i-ajuda"/></svg><span class="rot">Como usar</span></button>
     </div>
   </div>
   <ol id="roteiro" class="roteiro" aria-label="Os três passos"></ol>
@@ -317,7 +345,9 @@
 
 <details open id="sec-processo"><summary>2. Processo <span class="falta"></span></summary><div class="corpo">
   <label>Arquivo do processo (PDF ou Word) — preenche o básico, os quesitos e os honorários</label>
-  <input type="file" id="anexoInput" accept=".pdf,.docx,.doc" onchange="anexarProcesso(event)" data-dica="Escolha o arquivo do processo (PDF ou Word). O formulário lê e preenche o que conseguir">
+  
+  <input type="file" id="anexoInput" class="oculto" accept=".pdf,.docx,.doc" onchange="anexarProcesso(event)">
+  <button type="button" class="bt1 largo" id="btAnexar" onclick="escolherArquivo('anexoInput')" data-dica="Escolha o arquivo do processo (PDF ou Word). O formulário lê e preenche o que conseguir">Escolher o arquivo do processo</button>
   <div class="valida" id="v_anexo"></div>
   <button type="button" class="add" id="btRemoverAnexo" onclick="confirmarRemover('processo')" data-dica="Tira o processo deste formulário. Os campos que ele preencheu continuam">Remover o processo anexado</button>
   <details class="ajuda"><summary>Como funciona?</summary><div>Precisa de internet na hora de
@@ -325,7 +355,8 @@
   preencheu nunca é trocado. Os quesitos achados no processo vão para as seções 14 e 15 —
   confira se estão na parte certa (reclamante ou reclamada).</div></details>
   <label id="rotuloRef">Laudo já formatado pelo escritório (Word) — opcional</label>
-  <input type="file" id="refInput" accept=".docx,.doc" onchange="anexarReferencia(event)">
+  <input type="file" id="refInput" class="oculto" accept=".docx,.doc" onchange="anexarReferencia(event)">
+  <button type="button" class="bt2 largo" id="btAnexarRef" onclick="escolherArquivo('refInput')" data-dica="Escolha o laudo em Word (.docx)">Escolher o arquivo do laudo</button>
   <div class="valida" id="v_ref"></div>
   <button type="button" class="add" id="btRemoverRef" onclick="confirmarRemover('referencia')" data-dica="Tira o laudo anexado deste formulário">Remover o laudo anexado</button>
   <details class="ajuda"><summary>Para que serve?</summary><div>Não preenche nenhum campo: vai
@@ -463,7 +494,7 @@
 </div></details>
 
 <details id="sec-nr15"><summary>10. NR-15 — Avaliações ambientais <span class="falta"></span></summary><div class="corpo">
-  <div class="dica">Os 10 agentes precisam de resposta. "Sem fonte geradora" usa a frase padrão do agente. O que for texto próprio pode ser ditado pelo teclado.</div>
+  <div class="dica">Os 10 agentes precisam de resposta. "Sem fonte geradora" usa a frase padrão do agente; "Documental" pede o setor no texto. O que for texto próprio pode ser ditado pelo teclado.</div>
   <div id="grp_nr15"></div>
   <div class="fotoswrap" data-fsec="nr15" data-frotulo="Fotos das avaliações — FISPQs, embalagens, produtos"></div>
 </div></details>
@@ -488,6 +519,7 @@
     <option value="inexistencia">Inexistência</option>
     <option value="parcial">Parcial</option>
   </select>
+  <div class="dica">"Ainda não decidi": o escritório deixa este ponto marcado para o senhor.</div>
   <div id="grp_conclusao" class="oculto">
     <div class="linha">
       <div><label>Anexo / Quadro / letra</label><input type="text" id="conclusao_anexo" placeholder="ex.: NR-15 Anexo 1 · NR-16 Anexo 2, letra q"></div>
@@ -705,7 +737,7 @@ async function excluirRascunho(id){
       texto: i.semExporte ? "Ela tem alterações que nunca foram enviadas nem guardadas em cópia. Excluindo, elas se perdem de vez."
                           : "Ela sai deste aparelho.",
       nao:"Manter a vistoria", sim:"Excluir a vistoria", perigo:true})) return;
-  ["","_edit","_export","_modo","_anexo_remoto"].forEach(s=>{ try{ localStorage.removeItem(LS_PREFIX+id+s); }catch(e){} });
+  ["","_edit","_export","_modo","_anexo_remoto","_faltas"].forEach(s=>{ try{ localStorage.removeItem(LS_PREFIX+id+s); }catch(e){} });
   fotosApagarVistoria(id);
   if(typeof apagarAnexosDe==="function") apagarAnexosDe(id);
   IDX.lista=IDX.lista.filter(r=>r.id!==id);
@@ -2254,7 +2286,7 @@ async function exportar(nuvem){
       genero_reclamante:g("meta_genero")||null,
       n_reclamadas:g("meta_n_reclamadas")||"1",
       modo: MODO_QUESITOS ? "so_quesitos" : "completo",
-      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.23-2026-10-02"},
+      gerado_em:hoje, fonte:"Formulario_Vistoria.html", versao:"v6.24-2026-10-06"},
     campos:c, ditado_txt:linhas.join("\n"),
     anexo_processo: ANEXO ? (()=>{
       const tFull=(ANEXO_TEXTO_FULL&&ANEXO_TEXTO_FULL.length>(ANEXO.texto||"").length)?ANEXO_TEXTO_FULL:ANEXO.texto;
@@ -2980,6 +3012,63 @@ function aoPendencias(lista){
   const ra=document.getElementById("btRemoverAnexo"), rr=document.getElementById("btRemoverRef");
   if(ra) ra.classList.toggle("oculto", !ANEXO);
   if(rr) rr.classList.toggle("oculto", !ANEXO_REF);
+  const ba=document.getElementById("btAnexar"), br=document.getElementById("btAnexarRef");
+  if(ba){ ba.textContent = ANEXO ? "Trocar o arquivo do processo" : "Escolher o arquivo do processo";
+    ba.className = (ANEXO ? "bt2" : "bt1")+" largo"; }
+  if(br) br.textContent = ANEXO_REF ? "Trocar o arquivo do laudo" : "Escolher o arquivo do laudo";
+  sincronizarSegmentos();
+}
+function escolherArquivo(id){ const i=document.getElementById(id); if(i) i.click(); }
+var SEGMENTOS=new Map();
+const ROTULO_CURTO={
+  "Sem fonte geradora (frase padrão do agente)":"Sem fonte geradora",
+  "Texto próprio (avaliado em campo)":"Texto próprio",
+  "Documental (LTCAT/PGR) — indicar setor no texto":"Documental (LTCAT/PGR)",
+  "Texto fixo de revogação (Anexo 4 / Portaria 3751-90)":"Texto fixo de revogação",
+  "Não se aplica (resposta negativa padrão do item)":"Não se aplica",
+  "Ainda não decidi — o escritório deixa este ponto marcado para o senhor":"Ainda não decidi"};
+function montarSegmentos(){
+  document.querySelectorAll("main select[id]").forEach(s=>{
+    if(SEGMENTOS.has(s)) return;
+    const ops=[...s.options].filter(o=>!(o.value==="" && /^—/.test(o.text.trim())));
+    if(!ops.length || ops.length>4) return;
+    const g=document.createElement("div"); g.className="seg"; g.setAttribute("role","group");
+    const rot=s.previousElementSibling, h=s.closest(".item-nr") && s.closest(".item-nr").querySelector("h4");
+    const nome=(rot && rot.tagName==="LABEL" ? rot : h||{textContent:""}).textContent.replace(/\*/g,"").trim();
+    if(nome) g.setAttribute("aria-label", nome);
+    if(ops.every(o=>o.text.trim().length<=2)){
+      g.classList.add("seg-curto"); g.style.gridTemplateColumns=`repeat(${ops.length},1fr)`; }
+    ops.forEach(o=>{
+      const b=document.createElement("button"), t=o.text.trim();
+      b.type="button"; b.dataset.valor=o.value; b.textContent=ROTULO_CURTO[t]||t;
+      if(ROTULO_CURTO[t]) b.dataset.dica=t;
+      b.onclick=()=>{
+        if(s.value===o.value || s.disabled) return;
+        s.value=o.value;
+        s.dispatchEvent(new Event("input",{bubbles:true}));
+        s.dispatchEvent(new Event("change",{bubbles:true}));
+        sincronizarSegmentos();
+      };
+      g.appendChild(b);
+    });
+    s.classList.add("seg-fonte");
+    s.insertAdjacentElement("afterend", g);
+    SEGMENTOS.set(s,g);
+  });
+  sincronizarSegmentos();
+}
+function sincronizarSegmentos(){
+  if(!SEGMENTOS) return;
+  SEGMENTOS.forEach((g,s)=>{
+    g.querySelectorAll("button").forEach(b=>{
+      b.setAttribute("aria-pressed", String(b.dataset.valor===s.value)); b.disabled=s.disabled; });
+    g.classList.toggle("pend", s.classList.contains("pend"));
+    g.classList.toggle("autofill", s.classList.contains("autofill"));
+  });
+}
+function mostrarFaltas(){
+  document.body.classList.add("mostra-faltas");
+  try{ localStorage.setItem(LS+"_faltas","1"); }catch(e){}
 }
 function desenharIndice(st){
   const ol=document.getElementById("indiceLista"); if(!ol) return;
@@ -3142,6 +3231,7 @@ function fecharTela(id){
 function listaNumeros(ns){ return ns.length>1 ? ns.slice(0,-1).join(", ")+" e "+ns[ns.length-1] : ns[0]; }
 function abrirEnvio(){
   flushSalvar();
+  mostrarFaltas();
   const quesitos=modoPedido()==="quesitos", st=statusSecoes(), comFalta=st.filter(s=>s.falta);
   document.getElementById("envExplica").textContent = quesitos
     ? "O escritório coloca os quesitos no seu laudo e responde a partir do que o laudo conclui. O que ele não resolver volta marcado para o senhor decidir."
@@ -3228,7 +3318,8 @@ function estadoRoteiro(st){
   const p1 = ANEXO
     ? {feito:true, dica: legivel ? "Feito: "+(ANEXO.paginas ? ANEXO.paginas+" páginas lidas" : "processo lido")
                                  : "Anexado, mas sem texto que dê para ler"}
-    : {feito:false, dica:"Comece por aqui, na seção 2"};
+    : {feito:false, dica:"Comece por aqui: o PDF ou o Word do processo"};
+  const irP1=()=>{ irPara("sec-processo"); if(!ANEXO) escolherArquivo("anexoInput"); };
   const p2 = {feito:faltaCampos===0, dica: faltaCampos
     ? `Faltam ${faltaCampos} campo${faltaCampos>1?"s":""} em ${faltaSecoes} seç${faltaSecoes>1?"ões":"ão"}`
     : "Tudo preenchido"};
@@ -3240,12 +3331,12 @@ function estadoRoteiro(st){
       ir:()=>irPara("sec-processo")};
     const at = !p1.feito ? 1 : (!q2.feito ? 2 : 3);
     return {atual:at, passos:[
-      {n:1, titulo:"Anexar o processo", ...p1, ir:()=>irPara("sec-processo")}, q2,
+      {n:1, titulo:"Anexar o processo", ...p1, ir:irP1}, q2,
       {n:3, titulo:"Enviar ao escritório", feito:false, dica:"O escritório responde os quesitos no seu laudo", ir:()=>abrirEnvio()}]};
   }
   const atual = !p1.feito ? 1 : (!p2.feito ? 2 : 3);
   return {atual, passos:[
-    {n:1, titulo:"Anexar o processo", ...p1, ir:()=>irPara("sec-processo")},
+    {n:1, titulo:"Anexar o processo", ...p1, ir:irP1},
     {n:2, titulo:"Preencher e conferir", ...p2,
       ir:()=>{ const s=st.find(x=>x.falta)||st.find(x=>x.conferir)||st[0]; irPara(s.id); }},
     {n:3, titulo:"Enviar ao escritório", ...p3, ir:()=>abrirEnvio()}]};
@@ -3265,9 +3356,11 @@ function desenharRoteiro(st){
     const li=document.createElement("li"), b=document.createElement("button");
     b.type="button"; b.className="passo"+(p.feito?" feito":"")+(p.n===atual?" agora":"");
     b.innerHTML=`<span class="passo-num" aria-hidden="true">${p.feito?"✓":p.n}</span>`+
-      `<span class="passo-txt"><b><span class="passo-de">Passo ${p.n} de 3: </span>${esc(p.titulo)}</b><small>${esc(p.dica)}</small></span>`;
+      `<span class="passo-txt"><b><span class="passo-de">Passo ${p.n} de 3: </span>${esc(p.titulo)}</b><small>${esc(p.dica)}</small>`+
+      (p.n===1 && !p.feito ? `<span class="passo-acao" aria-hidden="true">Escolher o arquivo</span>` : "")+`</span>`;
     b.onclick=p.ir;
-    b.dataset.dica=["Leva até a seção 2, onde se anexa o processo","Leva até a próxima seção que tem algo faltando","Abre a tela de envio"][p.n-1];
+    b.dataset.dica = p.n===1 && !p.feito ? "Abre a escolha do arquivo do processo (PDF ou Word)"
+      : ["Leva até a seção 2, onde se anexa o processo","Leva até a próxima seção que tem algo faltando","Abre a tela de envio"][p.n-1];
     li.classList.toggle("atual", p.n===atual);
     li.appendChild(b); ol.appendChild(li);
   });
@@ -3484,7 +3577,7 @@ function tourDoModo(){
   q ? {alvo:"#indice", titulo:"Só três seções importam aqui",
    texto:"A seção 2, onde vão o processo e o seu laudo, e as seções 14 e 15, com os quesitos. Confira se os quesitos do reclamante e os da reclamada caíram na caixa certa. As outras seções o senhor pode deixar em branco."}
     : {alvo:"#indice", titulo:"As partes do laudo",
-   texto:"Aqui estão as 16 seções. O número vermelho diz quanto falta em cada uma. O senhor pode pular de uma para outra, na ordem que quiser."},
+   texto:"Aqui estão as 16 seções. Ao lado de cada uma, quanto ainda falta; fica vermelho depois que o senhor abre a tela de envio. O senhor pode pular de uma para outra, na ordem que quiser."},
   {alvo:".autofill", titulo:"O campo amarelo veio do processo",
    texto:"Quando o senhor anexa o processo, o formulário preenche alguns campos sozinho e os pinta de amarelo. Confira cada um: se estiver certo, pode deixar; se estiver errado, é só corrigir por cima."},
   q ? {alvo:"#btExportar", titulo:"Enviar, e o laudo volta pronto",
@@ -3570,6 +3663,8 @@ function abrirImportadoPendente(){
 }
 function iniciarInterface(){
   montarPes();
+  montarSegmentos();
+  try{ if(localStorage.getItem(LS+"_faltas")==="1") document.body.classList.add("mostra-faltas"); }catch(e){}
   secoes().forEach(d=>d.querySelector("summary").addEventListener("click", ev=>{
     ev.preventDefault(); }));
   const h=document.querySelector("header");
