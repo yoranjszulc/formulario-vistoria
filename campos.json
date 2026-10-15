@@ -1,0 +1,272 @@
+{
+ "gerado_por": "laudos-app ferramentas/extrair_catalogo.mjs, a partir da marcação da v6.24 com as caixas da NR montadas",
+ "ids": [
+  "anexoInput",
+  "atividades_texto",
+  "conclusao_agente",
+  "conclusao_anexo",
+  "conclusao_delimitacao",
+  "conclusao_epi",
+  "conclusao_grau",
+  "conclusao_periodo",
+  "conclusao_resultado",
+  "epc_ausente",
+  "instrumento_marca",
+  "instrumento_modelo",
+  "instrumento_tipo",
+  "local_conservacao",
+  "local_dimensoes",
+  "local_iluminacao",
+  "local_nome",
+  "local_pe_direito",
+  "local_piso",
+  "local_tipo",
+  "local_ventilacao",
+  "meta_categoria",
+  "meta_genero",
+  "meta_n_reclamadas",
+  "nr15_10_modo",
+  "nr15_10_texto",
+  "nr15_1_modo",
+  "nr15_1_texto",
+  "nr15_2_modo",
+  "nr15_2_texto",
+  "nr15_3_modo",
+  "nr15_3_texto",
+  "nr15_4_modo",
+  "nr15_4_texto",
+  "nr15_5_modo",
+  "nr15_5_texto",
+  "nr15_6_modo",
+  "nr15_6_texto",
+  "nr15_7_modo",
+  "nr15_7_texto",
+  "nr15_8_modo",
+  "nr15_8_texto",
+  "nr15_9_modo",
+  "nr15_9_texto",
+  "nr16_10_modo",
+  "nr16_10_texto",
+  "nr16_11_modo",
+  "nr16_11_texto",
+  "nr16_1_modo",
+  "nr16_1_texto",
+  "nr16_2_distancia",
+  "nr16_2_modo",
+  "nr16_2_texto",
+  "nr16_2_volume",
+  "nr16_3_modo",
+  "nr16_3_texto",
+  "nr16_4_modo",
+  "nr16_4_texto",
+  "nr16_5_modo",
+  "nr16_5_texto",
+  "nr16_6_modo",
+  "nr16_6_texto",
+  "nr16_7_modo",
+  "nr16_7_texto",
+  "nr16_8_modo",
+  "nr16_8_texto",
+  "nr16_9_modo",
+  "nr16_9_texto",
+  "observacoes_texto",
+  "portador_admissao",
+  "portador_conheceu",
+  "portador_funcao",
+  "portador_nome",
+  "processo_cidade",
+  "processo_comarca_uf",
+  "processo_data",
+  "processo_honorarios",
+  "processo_numero_cnj",
+  "processo_reclamada",
+  "processo_reclamada2",
+  "processo_reclamante",
+  "processo_vara",
+  "protecao_uniforme",
+  "quesitos_colados_reclamada",
+  "quesitos_colados_reclamada2",
+  "quesitos_colados_reclamante",
+  "reclamada_atividade",
+  "reclamada_cnae",
+  "reclamada_cnpj",
+  "reclamada_endereco",
+  "reclamada_grau_risco",
+  "reclamante_cpf",
+  "reclamante_estado_civil",
+  "reclamante_nascimento",
+  "reclamante_rg",
+  "refInput",
+  "vinculo_admissao",
+  "vinculo_demissao",
+  "vinculo_funcao",
+  "vinculo_jornada",
+  "vinculo_local",
+  "vinculo_setor",
+  "vistoria_data",
+  "vistoria_data_peticao_pje",
+  "vistoria_hora_inicio",
+  "vistoria_hora_termino"
+ ],
+ "selects": {
+  "conclusao_grau": [
+   "",
+   "mínimo",
+   "médio",
+   "máximo"
+  ],
+  "conclusao_resultado": [
+   "aguardando",
+   "existencia",
+   "inexistencia",
+   "parcial"
+  ],
+  "instrumento_tipo": [
+   "",
+   "decibelimetro",
+   "dosimetro"
+  ],
+  "meta_categoria": [
+   "",
+   "insalubridade",
+   "periculosidade",
+   "insalubridade_periculosidade"
+  ],
+  "meta_genero": [
+   "",
+   "M",
+   "F"
+  ],
+  "meta_n_reclamadas": [
+   "1",
+   "2"
+  ],
+  "nr15_10_modo": [
+   "",
+   "padrao",
+   "proprio",
+   "documental"
+  ],
+  "nr15_1_modo": [
+   "",
+   "padrao",
+   "proprio",
+   "documental"
+  ],
+  "nr15_2_modo": [
+   "",
+   "padrao",
+   "proprio",
+   "documental"
+  ],
+  "nr15_3_modo": [
+   "",
+   "padrao",
+   "proprio",
+   "documental",
+   "revogado"
+  ],
+  "nr15_4_modo": [
+   "",
+   "padrao",
+   "proprio",
+   "documental"
+  ],
+  "nr15_5_modo": [
+   "",
+   "padrao",
+   "proprio",
+   "documental"
+  ],
+  "nr15_6_modo": [
+   "",
+   "padrao",
+   "proprio",
+   "documental"
+  ],
+  "nr15_7_modo": [
+   "",
+   "padrao",
+   "proprio",
+   "documental"
+  ],
+  "nr15_8_modo": [
+   "",
+   "padrao",
+   "proprio",
+   "documental"
+  ],
+  "nr15_9_modo": [
+   "",
+   "padrao",
+   "proprio",
+   "documental"
+  ],
+  "nr16_10_modo": [
+   "",
+   "padrao",
+   "proprio"
+  ],
+  "nr16_11_modo": [
+   "",
+   "padrao",
+   "proprio"
+  ],
+  "nr16_1_modo": [
+   "",
+   "padrao",
+   "proprio"
+  ],
+  "nr16_2_modo": [
+   "",
+   "proprio"
+  ],
+  "nr16_3_modo": [
+   "",
+   "padrao",
+   "proprio"
+  ],
+  "nr16_4_modo": [
+   "",
+   "padrao",
+   "proprio"
+  ],
+  "nr16_5_modo": [
+   "",
+   "padrao",
+   "proprio"
+  ],
+  "nr16_6_modo": [
+   "",
+   "padrao",
+   "proprio"
+  ],
+  "nr16_7_modo": [
+   "",
+   "padrao",
+   "proprio"
+  ],
+  "nr16_8_modo": [
+   "",
+   "padrao",
+   "proprio"
+  ],
+  "nr16_9_modo": [
+   "",
+   "padrao",
+   "proprio"
+  ],
+  "portador_conheceu": [
+   "",
+   "Sim",
+   "Não"
+  ],
+  "reclamada_grau_risco": [
+   "",
+   "1",
+   "2",
+   "3",
+   "4"
+  ]
+ }
+}
